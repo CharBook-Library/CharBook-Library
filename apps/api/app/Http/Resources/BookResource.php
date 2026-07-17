@@ -108,7 +108,15 @@ class BookResource extends JsonResource
             return null;
         }
 
-        return $hasPaidChapters ? null : $this->file_link;
+        if ($hasPaidChapters) {
+            return null;
+        }
+
+        if ($this->file_path || $this->file_url) {
+            return url("/api/books/{$this->slug}/file-proxy");
+        }
+
+        return null;
     }
 
     private function safeStatus($user): ?string

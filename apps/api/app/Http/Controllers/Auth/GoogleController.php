@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\AccountStatusService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -11,6 +12,8 @@ use Laravel\Socialite\Facades\Socialite;
 
 class GoogleController extends Controller
 {
+    public function __construct(private readonly AccountStatusService $accountStatus) {}
+
     public function redirect()
     {
         return Socialite::driver('google')->stateless()->redirect();
@@ -18,7 +21,7 @@ class GoogleController extends Controller
 
     public function mobileRedirect(Request $request)
     {
-        $callbackUrl = $request->getSchemeAndHttpHost() . '/auth/google/callback';
+        $callbackUrl = $this->googleCallbackUrl($request);
 
         session([
             'google_oauth_target' => 'mobile',
@@ -41,7 +44,7 @@ class GoogleController extends Controller
 
             $googleUser = $driver->user();
         } catch (\Throwable $e) {
-            Log::error('Google OAuth callback failed: ' . $e->getMessage());
+            Log::error('Google OAuth callback failed.', ['exception' => $e::class]);
             return $this->oauthFailureRedirect();
         }
 
@@ -66,6 +69,11 @@ class GoogleController extends Controller
             $user->forceFill([
                 'username' => User::generateUniqueUsername($base),
             ])->save();
+        }
+
+        $accountStatus = $this->accountStatus->effectiveStatus($user);
+        if ($accountStatus !== User::ACCOUNT_ACTIVE) {
+            return $this->oauthAccountBlockedRedirect($accountStatus);
         }
 
         if ($user->wasRecentlyCreated && ! $user->hasAnyRole(['admin', 'reader'])) {
@@ -112,6 +120,23 @@ class GoogleController extends Controller
         return redirect(config('app.frontend_url', '/') . '/login?error=oauth_failed');
     }
 
+    private function oauthAccountBlockedRedirect(string $status)
+    {
+        $error = $status === User::ACCOUNT_BANNED ? 'account_banned' : 'account_suspended';
+
+        if (session()->pull('google_oauth_target') === 'mobile') {
+            $mobileRedirect = session()->pull(
+                'google_oauth_mobile_redirect',
+                config('services.google.mobile_redirect', 'charbookreact://auth/callback')
+            );
+
+            return redirect($this->appendQuery($mobileRedirect, ['error' => $error]));
+        }
+
+        $frontend = rtrim(config('app.frontend_url', config('app.url')), '/');
+        return redirect("{$frontend}/login?error={$error}");
+    }
+
     private function mobileRedirectUri(Request $request): string
     {
         $configured = config('services.google.mobile_redirect', 'charbookreact://auth/callback');
@@ -139,6 +164,33 @@ class GoogleController extends Controller
         }
 
         return $configured;
+    }
+
+    private function googleCallbackUrl(Request $request): string
+    {
+        $configured = trim((string) config('services.google.callback_url', ''));
+
+        if ($configured !== '') {
+            $scheme = parse_url($configured, PHP_URL_SCHEME);
+            if (! filter_var($configured, FILTER_VALIDATE_URL)
+                || (app()->environment('production') && $scheme !== 'https')) {
+                abort(503, 'Google OAuth callback is not configured securely.');
+            }
+
+            return $configured;
+        }
+
+        if (app()->environment('production')) {
+            $redirect = trim((string) config('services.google.redirect', ''));
+            if (! filter_var($redirect, FILTER_VALIDATE_URL)
+                || parse_url($redirect, PHP_URL_SCHEME) !== 'https') {
+                abort(503, 'Google OAuth callback is not configured securely.');
+            }
+
+            return $redirect;
+        }
+
+        return $request->getSchemeAndHttpHost().'/auth/google/callback';
     }
 
     private function appendQuery(string $url, array $params): string

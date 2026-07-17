@@ -38,6 +38,17 @@ class FollowController extends Controller
 
         $alreadyFollowing = $me->isFollowing($user);
 
+        // Bloqueos: si el target me bloqueó no puedo seguirlo; si yo lo
+        // bloqueé, primero debo desbloquearlo. (El unfollow sí se permite.)
+        if (! $alreadyFollowing) {
+            if ($user->hasBlocked($me)) {
+                return response()->json(['message' => 'No puedes seguir a este usuario.'], 403);
+            }
+            if ($me->hasBlocked($user)) {
+                return response()->json(['message' => 'Has bloqueado a este usuario. Desbloquéalo primero.'], 422);
+            }
+        }
+
         // CASO 1: ya lo sigo → unfollow (sin importar privacidad)
         if ($alreadyFollowing) {
             $me->following()->detach($user->id);

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\AccountStatusService;
 use App\Services\PlatformSettings;
 use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
@@ -45,6 +46,11 @@ class UserAdminController extends Controller
             $query->whereHas('roles', fn($q) => $q->where('name', $role));
         }
 
+        if ($accountStatus = $request->input('account_status')) {
+            abort_unless(in_array($accountStatus, User::ACCOUNT_STATUSES, true), 422, 'Estado de cuenta no permitido.');
+            $query->where('account_status', $accountStatus);
+        }
+
         $query->latest('created_at');
 
         $users = $query->paginate(25)->withQueryString();
@@ -63,6 +69,9 @@ class UserAdminController extends Controller
                 'creator_tier' => $u->creator_tier ?? 'none',
                 'creator_level' => $u->creator_level,
                 'subscription_tier' => $u->subscription_tier ?? 'free',
+                'account_status' => $u->account_status ?? User::ACCOUNT_ACTIVE,
+                'account_status_changed_at' => $u->account_status_changed_at?->toIso8601String(),
+                'account_status_expires_at' => $u->account_status_expires_at?->toIso8601String(),
                 'roles' => $u->roles->pluck('name'),
                 'reviews_count' => $u->reviews_count ?? 0,
                 'favorites_count' => $u->favorites_count ?? 0,
@@ -99,6 +108,11 @@ class UserAdminController extends Controller
                 'creator_tier' => $user->creator_tier ?? 'none',
                 'creator_level' => $user->creator_level,
                 'subscription_tier' => $user->subscription_tier ?? 'free',
+                'account_status' => $user->account_status ?? User::ACCOUNT_ACTIVE,
+                'account_status_reason' => $user->account_status_reason,
+                'account_status_changed_at' => $user->account_status_changed_at?->toIso8601String(),
+                'account_status_expires_at' => $user->account_status_expires_at?->toIso8601String(),
+                'account_status_changed_by' => $user->account_status_changed_by,
                 'roles' => $user->roles->pluck('name'),
                 'created_at' => $user->created_at?->toIso8601String(),
                 'stats' => [
@@ -166,6 +180,16 @@ class UserAdminController extends Controller
         }
 
         $user->load('roles:id,name');
+
+        \App\Services\AuditLogger::log(
+            $request,
+            'user.roles_change',
+            entityType: 'user',
+            entityId: $user->id,
+            entityLabel: $user->name,
+            reason: "{$data['action']} rol '{$data['role']}'",
+            after: ['roles' => $user->roles->pluck('name')->all()],
+        );
 
         return response()->json([
             'roles' => $user->roles->pluck('name'),
@@ -245,6 +269,47 @@ class UserAdminController extends Controller
         return response()->json([
             'subscription_tier' => $user->subscription_tier,
             'message' => "Membresia actualizada a {$label}.",
+        ]);
+    }
+
+    public function updateAccountStatus(
+        Request $request,
+        User $user,
+        AccountStatusService $accountStatus,
+    ): JsonResponse {
+        $data = $request->validate([
+            'status' => ['required', 'string', \Illuminate\Validation\Rule::in(User::ACCOUNT_STATUSES)],
+            'reason' => ['required', 'string', 'min:3', 'max:1000'],
+            'suspended_until' => ['nullable', 'date', 'after:now'],
+        ]);
+
+        $updated = $accountStatus->changeStatus(
+            $request,
+            $request->user(),
+            $user,
+            $data['status'],
+            trim($data['reason']),
+            isset($data['suspended_until'])
+                ? \Illuminate\Support\Carbon::parse($data['suspended_until'])
+                : null,
+        );
+
+        return response()->json([
+            'account_status' => $updated->account_status,
+            'account_status_reason' => $updated->account_status_reason,
+            'account_status_changed_at' => $updated->account_status_changed_at?->toIso8601String(),
+            'account_status_expires_at' => $updated->account_status_expires_at?->toIso8601String(),
+            'account_status_changed_by' => $updated->accountStatusChangedBy
+                ? [
+                    'id' => $updated->accountStatusChangedBy->id,
+                    'name' => $updated->accountStatusChangedBy->name,
+                ]
+                : null,
+            'message' => match ($updated->account_status) {
+                User::ACCOUNT_ACTIVE => 'Cuenta reactivada.',
+                User::ACCOUNT_BANNED => 'Cuenta inhabilitada.',
+                default => 'Cuenta suspendida.',
+            },
         ]);
     }
 

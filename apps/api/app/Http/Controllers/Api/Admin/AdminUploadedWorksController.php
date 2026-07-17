@@ -17,7 +17,7 @@ use Illuminate\Validation\Rule;
 class AdminUploadedWorksController extends Controller
 {
     public const MOD_ACTIONS = [
-        'hide', 'unhide', 'review', 'sensitive', 'unsensitive',
+        'hide', 'unhide', 'review', 'publish', 'sensitive', 'unsensitive',
         'pin', 'unpin', 'recommend', 'unrecommend', 'trend', 'untrend',
     ];
 
@@ -66,7 +66,13 @@ class AdminUploadedWorksController extends Controller
             $query->where('title', 'ILIKE', $like);
         }
 
-        $query->orderBy('created_at', $sort === 'newest' ? 'desc' : 'asc');
+        match ($sort) {
+            'newest' => $query->orderByDesc('created_at'),
+            'title' => $query->orderBy('title'),
+            'views' => $query->orderByDesc('views_count'),
+            'readers' => $query->orderByDesc('total_readings_count'),
+            default => $query->orderBy('created_at'),
+        };
 
         $works = $query->paginate(20)->withQueryString();
 
@@ -108,6 +114,12 @@ class AdminUploadedWorksController extends Controller
 
         $admin = $request->user();
 
+        $statusBefore = [
+            'submission_status' => $work->submission_status,
+            'is_published' => (bool) $work->is_published,
+            'is_hidden' => (bool) $work->is_hidden,
+        ];
+
         match ($data['action']) {
             'hide' => $work->forceFill([
                 'is_hidden' => true,
@@ -126,6 +138,13 @@ class AdminUploadedWorksController extends Controller
                 'submission_status' => 'review',
                 'is_published' => false,
             ])->save(),
+            'publish' => $work->forceFill([
+                'submission_status' => 'published',
+                'is_published' => true,
+                'is_hidden' => false,
+                'hidden_at' => null,
+                'hidden_by' => null,
+            ])->save(),
             'sensitive' => $work->forceFill(['is_sensitive' => true])->save(),
             'unsensitive' => $work->forceFill(['is_sensitive' => false])->save(),
             'pin' => $work->forceFill(['is_pinned' => true, 'is_featured' => true])->save(),
@@ -135,6 +154,21 @@ class AdminUploadedWorksController extends Controller
             'trend' => $work->forceFill(['is_trending' => true])->save(),
             'untrend' => $work->forceFill(['is_trending' => false])->save(),
         };
+
+        \App\Services\AuditLogger::log(
+            $request,
+            'work.moderate',
+            entityType: 'book',
+            entityId: $work->id,
+            entityLabel: $work->title,
+            reason: "Acción: {$data['action']}",
+            before: $statusBefore,
+            after: [
+                'submission_status' => $work->submission_status,
+                'is_published' => (bool) $work->is_published,
+                'is_hidden' => (bool) $work->is_hidden,
+            ],
+        );
 
         return response()->json([
             'data' => $this->serialize($work->fresh()),
@@ -184,6 +218,14 @@ class AdminUploadedWorksController extends Controller
      */
     public function destroy(Request $request, Book $work): JsonResponse
     {
+        \App\Services\AuditLogger::log(
+            $request,
+            'work.delete',
+            entityType: 'book',
+            entityId: $work->id,
+            entityLabel: $work->title,
+        );
+
         $work->delete();
 
         return response()->json(['message' => 'Obra eliminada.']);

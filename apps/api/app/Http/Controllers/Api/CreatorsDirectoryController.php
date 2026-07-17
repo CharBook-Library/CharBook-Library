@@ -72,13 +72,21 @@ class CreatorsDirectoryController extends Controller
     }
 
     /**
-     * GET /api/creators/books?category=fantasia
+     * GET /api/creators/books?category=fantasia&sort=trending
      * Libros publicados exclusivamente por creadores (no admin uploads),
      * con filtro opcional por slug de categoría.
+     *
+     * sort:
+     *   trending    → más vistos en los últimos 7 días (book_views)
+     *   new_creators→ obras de los creadores más recientes
+     *   top_rated   → mejor reseñados (con al menos una valoración primero)
+     *   most_saved  → más guardados en favoritos
+     *   (default)   → destacadas + recientes
      */
     public function books(Request $request): JsonResponse
     {
         $categorySlug = $request->query('category');
+        $sort = $request->query('sort');
         $page = (int) $request->query('page', 1);
 
         $query = Book::query()
@@ -97,9 +105,31 @@ class CreatorsDirectoryController extends Controller
             );
         }
 
+        match ($sort) {
+            'trending' => $query
+                ->withCount(['views as weekly_views_count' => fn ($q) => $q
+                    ->where('last_viewed_at', '>=', now()->subDays(7))])
+                ->orderByDesc('weekly_views_count')
+                ->orderByDesc('views_count')
+                ->orderByDesc('created_at'),
+            'new_creators' => $query
+                ->orderByDesc(
+                    User::select('created_at')->whereColumn('users.id', 'books.creator_id')
+                )
+                ->orderByDesc('created_at'),
+            'top_rated' => $query
+                ->orderByRaw('(rating_count > 0) DESC')
+                ->orderByDesc('rating_average')
+                ->orderByDesc('rating_count'),
+            'most_saved' => $query
+                ->orderByDesc('favorites_count')
+                ->orderByDesc('created_at'),
+            default => $query
+                ->orderByDesc('is_featured')
+                ->orderByDesc('created_at'),
+        };
+
         $books = $query
-            ->orderByDesc('is_featured')
-            ->orderByDesc('created_at')
             ->paginate(24, page: $page)
             ->withQueryString();
 
@@ -113,6 +143,8 @@ class CreatorsDirectoryController extends Controller
                 'language' => $b->language,
                 'rating_average' => (float) $b->rating_average,
                 'rating_count' => (int) $b->rating_count,
+                'favorites_count' => (int) $b->favorites_count,
+                'weekly_views' => (int) ($b->weekly_views_count ?? 0),
                 'is_featured' => (bool) $b->is_featured,
                 'creator' => $b->creator ? [
                     'id' => $b->creator->id,

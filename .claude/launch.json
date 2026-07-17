@@ -7,6 +7,14 @@
       "runtimeArgs": ["run", "dev", "--prefix", "apps/web"],
       "port": 3000,
       "autoPort": false
+    },
+    {
+      "name": "api",
+      "runtimeExecutable": "php",
+      "runtimeArgs": ["artisan", "serve", "--port=8000"],
+      "cwd": "apps/api",
+      "port": 8000,
+      "autoPort": false
     }
   ]
 }

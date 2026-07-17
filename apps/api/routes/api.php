@@ -46,7 +46,7 @@ use Illuminate\Support\Facades\Route;
 // =========================================================
 // ===== AUTH: registro / login / password / 2FA (public) =====
 // =========================================================
-Route::prefix('auth')->middleware('throttle:api')->group(function () {
+Route::prefix('auth')->middleware('throttle:auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
@@ -56,7 +56,7 @@ Route::prefix('auth')->middleware('throttle:api')->group(function () {
     Route::post('/two-factor/verify', [TwoFactorController::class, 'verifyChallenge']);
     Route::post('/passkey/verify', [PasskeyController::class, 'verify']);
 });
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::post('/auth/email/send-verification', [AuthController::class, 'sendEmailVerification']);
     Route::post('/auth/email/verify', [AuthController::class, 'verifyEmail']);
@@ -65,7 +65,7 @@ Route::middleware('auth:sanctum')->group(function () {
 // =========================================================
 // ===== ME: cuenta, avatar, preferencias, 2FA, passkeys =====
 // =========================================================
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
     // Cuenta
     Route::patch('/me/account', [AccountController::class, 'update']);
     Route::patch('/me/password', [AccountController::class, 'changePassword']);
@@ -194,6 +194,9 @@ Route::middleware('throttle:api')->group(function () {
     Route::get('/languages', fn() => response()->json([
         'data' => Language::active()->get(),
     ]));
+
+    // Heartbeat de presencia ("usuarios online") — auth opcional vía sanctum.
+    Route::post('/presence/ping', [\App\Http\Controllers\Api\PresenceController::class, 'ping']);
 });
 
 // Click-tracking de afiliados (sin rate limit estricto, pero throttle 'api')
@@ -205,7 +208,7 @@ Route::middleware('throttle:api')->group(function () {
 // ============ Usuario autenticado ============
 // =========================================================
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
     Route::get('/user', function (Request $request) {
         $user = $request->user();
         $roles = $user->getRoleNames();
@@ -315,6 +318,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/me/notifications/activity', [NotificationsController::class, 'activity']);
         Route::patch('/me/notifications/{notification:id}/read', [NotificationsController::class, 'markRead']);
         Route::post('/me/notifications/read-all', [NotificationsController::class, 'readAll']);
+        Route::delete('/me/notifications/bulk', [NotificationsController::class, 'destroyBulk']);
         Route::delete('/me/notifications/{notification:id}', [NotificationsController::class, 'destroy']);
 
         // ===== Mensajes =====
@@ -396,6 +400,15 @@ Route::middleware('auth:sanctum')->group(function () {
 // Webhook Stripe: SIN auth (firma verificada dentro). Stripe reintenta en 5xx.
 Route::post('/webhooks/stripe', [BillingController::class, 'webhook']);
 
+// Error controlado para validar observabilidad. No existe fuera de loadtest,
+// no ejecuta comandos y el límite evita llenar métricas o logs.
+if (app()->environment('loadtest') && config('loadtest.controlled_errors')) {
+    Route::middleware('throttle:loadtest-errors')
+        ->get('/loadtest/controlled-error', fn () => response()->json([
+            'message' => 'Error controlado del entorno de carga.',
+        ], 500));
+}
+
 // Callback SSV de anuncios recompensados (servidor del proveedor → nuestro servidor)
 Route::get('/ads/ssv-callback', [MonetizationController::class, 'adSsvCallback'])->middleware('throttle:api');
 
@@ -410,7 +423,7 @@ Route::middleware('throttle:api')->group(function () {
     Route::get('/books/{book:slug}/access', [MonetizationController::class, 'bookAccess']);
 });
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
     Route::middleware('throttle:api')->group(function () {
         Route::get('/wallet', [MonetizationController::class, 'wallet']);
         Route::get('/wallet/transactions', [MonetizationController::class, 'transactions']);
@@ -429,6 +442,20 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/books/{book:slug}/unlock-pack', [MonetizationController::class, 'unlockPack']);
         Route::post('/rewards/daily-login', [MonetizationController::class, 'dailyLogin']);
         Route::post('/ads/session', [MonetizationController::class, 'adSession']);
+    });
+
+    // Panel Studio del creador (estadísticas, comentarios, seguidores)
+    Route::prefix('me/creator')->middleware('throttle:api')->group(function () {
+        Route::get('/stats', [\App\Http\Controllers\Api\CreatorStudioController::class, 'stats']);
+        Route::get('/comments', [\App\Http\Controllers\Api\CreatorStudioController::class, 'comments']);
+        Route::get('/followers', [\App\Http\Controllers\Api\CreatorStudioController::class, 'followers']);
+        Route::get('/blocked', [\App\Http\Controllers\Api\CreatorStudioController::class, 'blocked']);
+    });
+    // Gestión de seguidores (mutaciones)
+    Route::prefix('me/creator')->middleware('throttle:user-mutations')->group(function () {
+        Route::post('/followers/{user}/remove', [\App\Http\Controllers\Api\CreatorStudioController::class, 'removeFollower']);
+        Route::post('/followers/{user}/block', [\App\Http\Controllers\Api\CreatorStudioController::class, 'blockFollower']);
+        Route::delete('/followers/{user}/block', [\App\Http\Controllers\Api\CreatorStudioController::class, 'unblockFollower']);
     });
 
     // Panel financiero del creador
@@ -451,7 +478,7 @@ Route::middleware('auth:sanctum')->group(function () {
 // ============ Rutas Admin ============
 // =========================================================
 
-Route::middleware(['auth:sanctum', 'admin', 'throttle:api'])->prefix('admin')->group(function () {
+Route::middleware(['auth:sanctum', 'account.active', 'admin', 'throttle:api'])->prefix('admin')->group(function () {
 
     Route::get('/stats', function () {
         return response()->json([
@@ -499,11 +526,30 @@ Route::middleware(['auth:sanctum', 'admin', 'throttle:api'])->prefix('admin')->g
     Route::post('/messages/to-user', [AdminBroadcastController::class, 'messageToUser']);
     Route::get('/users/search', [AdminBroadcastController::class, 'searchUsers']);
 
-    // ===== Obras subidas por creadores (moderación) =====
-    Route::get('/uploaded-works', [AdminUploadedWorksController::class, 'index']);
-    Route::get('/uploaded-works/{work:id}', [AdminUploadedWorksController::class, 'show']);
-    Route::patch('/uploaded-works/{work:id}/moderation', [AdminUploadedWorksController::class, 'moderate']);
-    Route::patch('/uploaded-works/{work:id}', [AdminUploadedWorksController::class, 'update']);
+    // ===== Salud del sistema (el controller exige super_admin) =====
+    Route::get('/system/health', [\App\Http\Controllers\Api\Admin\SystemHealthController::class, 'health']);
+    Route::get('/system/queue', [\App\Http\Controllers\Api\Admin\SystemHealthController::class, 'queueDetail']);
+    Route::delete('/system/queue/pending/{id}', [\App\Http\Controllers\Api\Admin\SystemHealthController::class, 'cancelPendingJob'])
+        ->whereNumber('id');
+    Route::post('/system/file-scan', [\App\Http\Controllers\Api\Admin\SystemHealthController::class, 'runFileScan']);
+    Route::post('/system/alerts/ack', [\App\Http\Controllers\Api\Admin\SystemHealthController::class, 'ackAlert']);
+    Route::post('/system/failed-jobs/retry', [\App\Http\Controllers\Api\Admin\SystemHealthController::class, 'retryFailedJobs']);
+    Route::delete('/system/failed-jobs/{uuid}', [\App\Http\Controllers\Api\Admin\SystemHealthController::class, 'forgetFailedJob']);
+    Route::delete('/system/failed-jobs', [\App\Http\Controllers\Api\Admin\SystemHealthController::class, 'flushFailedJobs']);
+    Route::post('/system/logs/clear', [\App\Http\Controllers\Api\Admin\SystemHealthController::class, 'clearLogs']);
+    Route::post('/system/metrics/clear', [\App\Http\Controllers\Api\Admin\SystemHealthController::class, 'clearMetrics']);
+
+    // ===== Auditoría administrativa (el controller exige super_admin) =====
+    Route::get('/audit-logs', [\App\Http\Controllers\Api\Admin\AuditLogController::class, 'index']);
+    Route::get('/audit-logs/actions', [\App\Http\Controllers\Api\Admin\AuditLogController::class, 'actions']);
+    Route::delete('/audit-logs', [\App\Http\Controllers\Api\Admin\AuditLogController::class, 'destroySelected']);
+    Route::delete('/audit-logs/all', [\App\Http\Controllers\Api\Admin\AuditLogController::class, 'destroyAll']);
+    Route::delete('/audit-logs/older-than/{days}', [\App\Http\Controllers\Api\Admin\AuditLogController::class, 'purgeOlderThan'])
+        ->whereNumber('days');
+
+    // ===== Obras subidas: solo la ELIMINACIÓN queda restringida a admin =====
+    // (listar / moderar / editar viven en el grupo 'staff' más abajo,
+    //  para que los moderadores también puedan poner obras en revisión)
     Route::delete('/uploaded-works/{work:id}', [AdminUploadedWorksController::class, 'destroy']);
 
     // ===== v3: Gestión de usuarios + roles =====
@@ -512,6 +558,7 @@ Route::middleware(['auth:sanctum', 'admin', 'throttle:api'])->prefix('admin')->g
     Route::patch('/users/{user}/roles', [UserAdminController::class, 'updateRoles']);
     Route::patch('/users/{user}/creator-tier', [UserAdminController::class, 'updateCreatorTier']);
     Route::patch('/users/{user}/membership', [UserAdminController::class, 'updateMembership']);
+    Route::patch('/users/{user}/account-status', [UserAdminController::class, 'updateAccountStatus']);
     Route::post('/users/{user}/coins', [UserAdminController::class, 'grantCoins'])
         ->middleware('throttle:user-mutations');
 
@@ -536,7 +583,13 @@ Route::middleware(['auth:sanctum', 'admin', 'throttle:api'])->prefix('admin')->g
 // Estas rutas las pueden usar TANTO admin como moderator, no solo admin.
 // Por eso van en un grupo separado con el middleware 'staff'.
 
-Route::middleware(['auth:sanctum', 'staff', 'throttle:api'])->prefix('admin')->group(function () {
+Route::middleware(['auth:sanctum', 'account.active', 'staff', 'throttle:api'])->prefix('admin')->group(function () {
+    // ===== Obras subidas por creadores (moderación: admin Y moderator) =====
+    Route::get('/uploaded-works', [AdminUploadedWorksController::class, 'index']);
+    Route::get('/uploaded-works/{work:id}', [AdminUploadedWorksController::class, 'show']);
+    Route::patch('/uploaded-works/{work:id}/moderation', [AdminUploadedWorksController::class, 'moderate']);
+    Route::patch('/uploaded-works/{work:id}', [AdminUploadedWorksController::class, 'update']);
+
     // ===== v3: Solicitudes de Creador =====
     Route::get('/creator-applications', [AdminCreatorApplicationController::class, 'index']);
     Route::get('/creator-applications/{creatorApplication}', [AdminCreatorApplicationController::class, 'show']);

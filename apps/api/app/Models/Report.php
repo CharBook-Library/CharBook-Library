@@ -55,11 +55,11 @@ class Report extends Model
     public function target()
     {
         return match ($this->target_type) {
-            'book'       => Book::find($this->target_id),
+            'book', 'work' => Book::find($this->target_id),
             'review'     => Review::find($this->target_id),
             'user'       => User::find($this->target_id),
-            'comment',
-            'salon_post' => null, // implementar cuando existan los modelos
+            'comment'    => Comment::find($this->target_id),
+            'salon_post' => null, // implementar cuando exista el modelo
             default      => null,
         };
     }

@@ -21,7 +21,24 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // La API siempre responde JSON: garantiza 401/403/422 limpios en vez
         // de intentar redirigir a la ruta web 'login' (que daría 500).
-        $middleware->api(prepend: [\App\Http\Middleware\ForceJsonAccept::class]);
+        $middleware->api(prepend: [
+            \App\Http\Middleware\ForceJsonAccept::class,
+        ]);
+
+        // Monitoreo ligero: contadores diarios de requests/4xx/5xx para el
+        // panel de salud del sistema (best-effort, nunca rompe la petición).
+        // PREPEND: debe envolver a SubstituteBindings para contar también los
+        // 404 de route-model-binding, que se lanzan antes de los "append".
+        $middleware->api(prepend: [
+            \App\Http\Middleware\RecordRequestMetrics::class,
+        ]);
+
+        // En produccion, CACHE_STORE=redis activa el limitador atomico de
+        // Redis. El fallback local (database/array) conserva el middleware
+        // estandar y no exige instalar Redis para desarrollar.
+        if (env('CACHE_STORE', 'database') === 'redis') {
+            $middleware->throttleWithRedis();
+        }
 
         // ===== Aliases =====
         $middleware->alias([
@@ -32,20 +49,27 @@ return Application::configure(basePath: dirname(__DIR__))
             'staff' => \App\Http\Middleware\EnsureUserIsStaff::class,
             'verified.email' => \App\Http\Middleware\EnsureEmailVerified::class,
             'entitlement' => \App\Http\Middleware\EnsureEntitlement::class,
+            'account.active' => \App\Http\Middleware\EnsureAccountIsActive::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        // Respuestas JSON consistentes para errores en peticiones API
+        // Respuestas JSON consistentes para errores en peticiones API.
         $exceptions->shouldRenderJsonWhen(function ($request) {
             return $request->is('api/*') || $request->expectsJson();
         });
 
         // Sin esto, una petición a una ruta auth:sanctum sin token intenta
-        // redirigir a la ruta web 'login' (inexistente) → 500 con stack trace.
-        // En la API siempre debe devolver 401 JSON limpio.
-        $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, $request) {
+        // redirigir a la ruta web 'login' (inexistente) y ocasiona un error 500.
+        // En la API siempre debe devolver un error 401 en formato JSON.
+        $exceptions->render(function (
+            \Illuminate\Auth\AuthenticationException $e,
+            $request
+        ) {
             if ($request->is('api/*')) {
-                return response()->json(['message' => 'No autenticado.'], 401);
+                return response()->json([
+                    'message' => 'No autenticado.',
+                ], 401);
             }
         });
-    })->create();
+    })
+    ->create();

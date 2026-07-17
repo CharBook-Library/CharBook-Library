@@ -1,0 +1,16 @@
+[program:charbook-worker]
+process_name=%(program_name)s_%(process_num)02d
+directory=/var/www/charbook/apps/api
+command=/usr/bin/php artisan queue:work redis --queue=default --sleep=1 --tries=3 --backoff=10 --timeout=1800 --max-time=3600 --memory=512
+numprocs=2
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+stopwaitsecs=1900
+user=charbook
+redirect_stderr=true
+stdout_logfile=/var/log/charbook/worker.log
+stdout_logfile_maxbytes=50MB
+stdout_logfile_backups=10
+environment=APP_ENV="production"

@@ -166,13 +166,12 @@ class ChapterImportTest extends TestCase
         $this->assertSame(0, ChapterImport::count());
     }
 
-    public function test_epub_malformado_se_acepta_pero_falla_al_analizar(): void
+    public function test_epub_sin_paquete_se_rechaza_antes_de_crear_importacion(): void
     {
         $creator = User::factory()->create();
         $book = $this->makeBook($creator);
 
-        // EPUB válido como ZIP pero sin rootfile en container.xml → FileGuard lo
-        // acepta (es un ZIP/epub legítimo) y el análisis lo marca como fallido.
+        // Un ZIP sin rootfile no es un EPUB utilizable y se rechaza al cargarlo.
         $zipPath = tempnam(sys_get_temp_dir(), 'epub').'.epub';
         $zip = new \ZipArchive;
         $zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
@@ -180,14 +179,14 @@ class ChapterImportTest extends TestCase
         $zip->addFromString('META-INF/container.xml', '<?xml version="1.0"?><container/>');
         $zip->close();
 
-        $upload = $this->actingAs($creator)
+        $this->actingAs($creator)
             ->postJson("/api/me/works/{$book->id}/imports", [
                 'file' => new UploadedFile($zipPath, 'libro.epub', null, null, true),
             ])
-            ->assertCreated()
-            ->json('data');
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('file');
 
-        $this->assertSame(ChapterImport::STATUS_FAILED, $upload['status']);
+        $this->assertSame(0, ChapterImport::count());
         $this->assertSame(0, Chapter::where('book_id', $book->id)->count());
         @unlink($zipPath);
     }
@@ -462,7 +461,7 @@ class ChapterImportTest extends TestCase
         @unlink($path);
     }
 
-    public function test_epub_con_xxe_falla_sin_filtrar(): void
+    public function test_epub_con_xxe_se_rechaza_antes_de_crear_importacion(): void
     {
         $creator = User::factory()->create();
         $book = $this->makeBook($creator);
@@ -478,13 +477,13 @@ class ChapterImportTest extends TestCase
             ['OEBPS/content.opf' => $opfXxe],
         );
 
-        // El upload pasa FileGuard (ZIP válido); el parse (sync) rechaza el XXE.
-        $upload = $this->actingAs($creator)
+        // FileGuard rechaza entidades externas antes de crear la importación.
+        $this->actingAs($creator)
             ->postJson("/api/me/works/{$book->id}/imports", ['file' => $epub])
-            ->assertCreated()
-            ->json('data');
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('file');
 
-        $this->assertSame(ChapterImport::STATUS_FAILED, $upload['status']);
+        $this->assertSame(0, ChapterImport::count());
         $this->assertSame(0, Chapter::where('book_id', $book->id)->count());
     }
 

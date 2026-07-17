@@ -66,6 +66,23 @@ class FileGuard
 
     public const ARCHIVE_MAX_ENTRIES = 5000;
 
+    public const ARCHIVE_MAX_COMPRESSION_RATIO = 200;
+
+    public const ARCHIVE_RATIO_MIN_BYTES = 1024 * 1024;
+
+    /** Limites adicionales para documentos internos de un EPUB. */
+    public const EPUB_MAX_MARKUP_BYTES = 8 * 1024 * 1024;
+
+    public const EPUB_MAX_XML_DEPTH = 128;
+
+    /** Tipos ejecutables que nunca deben viajar dentro de un EPUB. */
+    private const EPUB_BLOCKED_EXTS = [
+        'js', 'jse', 'mjs', 'vbs', 'vbe', 'ps1', 'sh', 'bash', 'zsh',
+        'exe', 'msi', 'bat', 'cmd', 'com', 'scr', 'jar', 'dll', 'so',
+        'dylib', 'php', 'phtml', 'phar', 'asp', 'aspx', 'jsp', 'cgi', 'pl',
+        'py', 'rb', 'app', 'apk', 'deb', 'rpm', 'reg', 'lnk', 'hta', 'wsf',
+    ];
+
     /** Imágenes: portadas y avatares. */
     public const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'webp'];
 
@@ -159,6 +176,12 @@ class FileGuard
             $this->fail($field, 'El archivo parece dañado o no es realmente un '.strtoupper($ext).'.');
         }
 
+        // Un EPUB no es solo "un ZIP": valida estructura, rutas y contenido
+        // activo antes de conservarlo para el lector web.
+        if ($ext === 'epub') {
+            $this->assertSafeEpubArchive($file->getRealPath(), $field);
+        }
+
         return $ext;
     }
 
@@ -217,7 +240,7 @@ class FileGuard
     public function assertSafeArchive(string $path, string $field = 'file'): void
     {
         $zip = new \ZipArchive;
-        if ($zip->open($path) !== true) {
+        if ($zip->open($path, \ZipArchive::RDONLY) !== true) {
             $this->fail($field, 'El archivo comprimido está dañado o no se puede leer.');
         }
 
@@ -229,7 +252,27 @@ class FileGuard
         $totalUncompressed = 0;
         for ($i = 0; $i < $zip->numFiles; $i++) {
             $stat = $zip->statIndex($i);
-            $totalUncompressed += (int) ($stat['size'] ?? 0);
+            $name = (string) ($stat['name'] ?? '');
+            $size = (int) ($stat['size'] ?? 0);
+            $compressedSize = (int) ($stat['comp_size'] ?? 0);
+
+            if (! $this->isSafeArchivePath($name)) {
+                $zip->close();
+                $this->fail($field, 'El archivo contiene rutas internas no permitidas.');
+            }
+
+            if ((int) ($stat['encryption_method'] ?? 0) !== 0) {
+                $zip->close();
+                $this->fail($field, 'El archivo contiene elementos cifrados que no se pueden verificar.');
+            }
+
+            if ($size >= self::ARCHIVE_RATIO_MIN_BYTES
+                && ($compressedSize <= 0 || ($size / $compressedSize) > self::ARCHIVE_MAX_COMPRESSION_RATIO)) {
+                $zip->close();
+                $this->fail($field, 'El archivo contiene elementos con una compresion desproporcionada.');
+            }
+
+            $totalUncompressed += $size;
             if ($totalUncompressed > self::ARCHIVE_MAX_UNCOMPRESSED) {
                 $zip->close();
                 $this->fail($field, 'El archivo descomprimido es demasiado grande.');
@@ -240,14 +283,113 @@ class FileGuard
     }
 
     /**
+     * Valida el contenedor EPUB que se entrega directamente a epub.js.
+     * Mantiene compatibilidad con EPUB 2/3, pero rechaza contenido activo o
+     * estructuras que no son necesarias para un libro de lectura.
+     */
+    public function assertSafeEpubArchive(string $path, string $field = 'file'): void
+    {
+        $this->assertSafeArchive($path, $field);
+
+        $zip = new \ZipArchive;
+        if ($zip->open($path, \ZipArchive::RDONLY) !== true) {
+            $this->fail($field, 'El EPUB esta dañado o no se puede leer.');
+        }
+
+        try {
+            $firstName = $zip->getNameIndex(0);
+            $mimetype = $zip->getFromName('mimetype');
+            $firstStat = $zip->statIndex(0);
+            if ($firstName !== 'mimetype'
+                || trim((string) $mimetype) !== 'application/epub+zip'
+                || (int) ($firstStat['comp_method'] ?? -1) !== \ZipArchive::CM_STORE) {
+                $this->fail($field, 'El archivo no cumple la estructura basica de un EPUB.');
+            }
+
+            $containerXml = $zip->getFromName('META-INF/container.xml');
+            if (! is_string($containerXml) || $containerXml === '') {
+                $this->fail($field, 'El EPUB no contiene META-INF/container.xml.');
+            }
+
+            $container = $this->loadXmlSafe($containerXml, $field);
+            $rootfiles = $container->getElementsByTagNameNS('*', 'rootfile');
+            if ($rootfiles->length === 0) {
+                $this->fail($field, 'El EPUB no declara su paquete de contenido.');
+            }
+
+            /** @var \DOMElement $rootfile */
+            $rootfile = $rootfiles->item(0);
+            $opfPath = rawurldecode(trim($rootfile->getAttribute('full-path')));
+            if (! $this->isSafeArchivePath($opfPath) || ! str_ends_with(strtolower($opfPath), '.opf')) {
+                $this->fail($field, 'El EPUB declara una ruta de paquete no permitida.');
+            }
+
+            $opfXml = $zip->getFromName($opfPath);
+            if (! is_string($opfXml) || $opfXml === '') {
+                $this->fail($field, 'El paquete OPF declarado no existe dentro del EPUB.');
+            }
+
+            $opf = $this->loadXmlSafe($opfXml, $field);
+            if ($opf->getElementsByTagNameNS('*', 'manifest')->length === 0
+                || $opf->getElementsByTagNameNS('*', 'spine')->length === 0) {
+                $this->fail($field, 'El EPUB no contiene manifest y spine validos.');
+            }
+
+            foreach ($opf->getElementsByTagNameNS('*', 'item') as $item) {
+                /** @var \DOMElement $item */
+                $href = rawurldecode(trim($item->getAttribute('href')));
+                if ($href === '' || $this->hasExternalScheme($href)) {
+                    $this->fail($field, 'El manifest del EPUB contiene recursos externos o invalidos.');
+                }
+            }
+
+            for ($i = 0; $i < $zip->numFiles; $i++) {
+                $stat = $zip->statIndex($i);
+                $name = (string) ($stat['name'] ?? '');
+                if ($name === '' || str_ends_with($name, '/')) {
+                    continue;
+                }
+
+                $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+                if (in_array($ext, self::EPUB_BLOCKED_EXTS, true)) {
+                    $this->fail($field, 'El EPUB contiene archivos ejecutables o scripts no permitidos.');
+                }
+
+                if (! in_array($ext, ['xml', 'opf', 'ncx', 'xhtml', 'html', 'htm', 'svg', 'css'], true)) {
+                    continue;
+                }
+
+                if ((int) ($stat['size'] ?? 0) > self::EPUB_MAX_MARKUP_BYTES) {
+                    $this->fail($field, 'Un documento interno del EPUB es excesivamente grande.');
+                }
+
+                $content = $zip->getFromIndex($i);
+                if (! is_string($content)) {
+                    $this->fail($field, 'No se pudo verificar un documento interno del EPUB.');
+                }
+
+                $this->assertSafeEpubMarkup($content, $ext, $field);
+            }
+        } finally {
+            $zip->close();
+        }
+    }
+
+    /**
      * Carga XML de forma segura (anti-XXE) para parsers de EPUB (OPF/NCX/nav)
      * o DOCX. Rechaza definiciones de entidad y deshabilita el acceso a red.
      * NOTA: no se usa LIBXML_NOENT, así que las entidades no se expanden.
      */
     public function loadXmlSafe(string $xml, string $field = 'file'): \DOMDocument
     {
-        // Bloquea el vector XXE más común: definición de entidades personalizadas.
-        if (preg_match('/<!ENTITY/i', $xml)) {
+        if (strlen($xml) > self::EPUB_MAX_MARKUP_BYTES) {
+            $this->fail($field, 'El XML del archivo es excesivamente grande.');
+        }
+
+        // Rechaza subsets DTD y entidades. Se permite un DOCTYPE simple de
+        // EPUB 2 por compatibilidad, pero nunca contenido declarativo interno.
+        if (preg_match('/<!ENTITY/i', $xml)
+            || preg_match('/<!DOCTYPE[^>]*\[/is', $xml)) {
             $this->fail($field, 'El XML del archivo contiene entidades no permitidas.');
         }
 
@@ -262,7 +404,91 @@ class FileGuard
             $this->fail($field, 'No se pudo leer el XML del archivo.');
         }
 
+        $this->assertDomDepth($dom, $field);
+
         return $dom;
+    }
+
+    private function assertSafeEpubMarkup(string $content, string $ext, string $field): void
+    {
+        if (str_contains($content, "\0")
+            || preg_match('/<!ENTITY/i', $content)
+            || preg_match('/<!DOCTYPE[^>]*\[/is', $content)) {
+            $this->fail($field, 'El EPUB contiene XML con DTD interno o entidades no permitidas.');
+        }
+
+        if ($ext === 'css') {
+            if (preg_match('/(?:expression\s*\(|javascript\s*:|vbscript\s*:|@import\s+url|url\s*\(\s*["\']?https?:)/i', $content)) {
+                $this->fail($field, 'El EPUB contiene estilos activos o recursos remotos no permitidos.');
+            }
+            return;
+        }
+
+        if (preg_match('/<(?:script|iframe|object|embed|form|base|foreignObject)\b/i', $content)
+            || preg_match('/\son[a-z0-9_-]+\s*=/i', $content)
+            || preg_match('/(?:javascript|vbscript)\s*:/i', $content)
+            || preg_match('/data\s*:\s*text\/html/i', $content)) {
+            $this->fail($field, 'El EPUB contiene contenido activo no permitido.');
+        }
+
+        if (preg_match('/<(?:img|image|audio|video|source|track|link)\b[^>]*(?:src|href|xlink:href)\s*=\s*["\']\s*(?:https?:)?\/\//i', $content)
+            || preg_match('/url\s*\(\s*["\']?https?:\/\//i', $content)) {
+            $this->fail($field, 'El EPUB intenta cargar recursos remotos activos.');
+        }
+
+        // XML estructural se valida de forma estricta y con profundidad
+        // acotada. XHTML/HTML real puede contener entidades HTML estandar que
+        // DOMDocument XML no reconoce, por lo que se escanea sin rechazarlo.
+        if (in_array($ext, ['xml', 'opf', 'ncx'], true)) {
+            $this->loadXmlSafe($content, $field);
+        }
+    }
+
+    private function assertDomDepth(\DOMDocument $dom, string $field): void
+    {
+        if (! $dom->documentElement) {
+            $this->fail($field, 'El XML del archivo no contiene un documento valido.');
+        }
+
+        $stack = [[$dom->documentElement, 1]];
+        while ($stack !== []) {
+            [$node, $depth] = array_pop($stack);
+            if ($depth > self::EPUB_MAX_XML_DEPTH) {
+                $this->fail($field, 'El XML del archivo excede la profundidad permitida.');
+            }
+
+            foreach ($node->childNodes as $child) {
+                if ($child instanceof \DOMElement) {
+                    $stack[] = [$child, $depth + 1];
+                }
+            }
+        }
+    }
+
+    private function isSafeArchivePath(string $name): bool
+    {
+        if ($name === '' || str_contains($name, "\0")) {
+            return false;
+        }
+
+        $normalized = str_replace('\\', '/', rawurldecode($name));
+        if (str_starts_with($normalized, '/') || preg_match('/^[A-Za-z]:/', $normalized)) {
+            return false;
+        }
+
+        foreach (explode('/', $normalized) as $segment) {
+            if ($segment === '..') {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function hasExternalScheme(string $value): bool
+    {
+        return str_starts_with($value, '//')
+            || (bool) preg_match('/^[a-z][a-z0-9+.-]*:/i', $value);
     }
 
     /**

@@ -1,0 +1,2 @@
+# Instalar en el crontab del usuario charbook. No usar a la vez que el timer systemd.
+* * * * * cd /var/www/charbook/apps/api && /usr/bin/php artisan schedule:run --no-interaction >> /var/log/charbook/scheduler.log 2>&1

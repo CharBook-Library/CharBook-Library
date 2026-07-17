@@ -11,10 +11,14 @@ class RateLimitServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
+        $apiPerMinute = app()->environment('loadtest')
+            ? max(60, (int) config('loadtest.api_rate_limit', 100000))
+            : 60;
+
         // ===== API general (público) =====
         // 60 requests/minuto por IP — suficiente para navegación normal
-        RateLimiter::for('api', function (Request $request) {
-            return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+        RateLimiter::for('api', function (Request $request) use ($apiPerMinute) {
+            return Limit::perMinute($apiPerMinute)->by($request->user()?->id ?: $request->ip());
         });
 
         // ===== Búsqueda instantánea (más permisivo, es alta frecuencia) =====
@@ -37,5 +41,11 @@ class RateLimitServiceProvider extends ServiceProvider
         RateLimiter::for('user-mutations', function (Request $request) {
             return Limit::perMinute(30)->by($request->user()?->id ?: $request->ip());
         });
+
+        if (app()->environment('loadtest')) {
+            RateLimiter::for('loadtest-errors', function (Request $request) {
+                return Limit::perMinute(5)->by($request->ip());
+            });
+        }
     }
 }

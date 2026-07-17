@@ -39,6 +39,41 @@ class FileUploadSecurityTest extends TestCase
         return new UploadedFile($path, $name, $mime, null, true); // test mode
     }
 
+    /** @param array<string,string> $entries */
+    private function validEpub(array $entries = [], ?string $containerXml = null, ?string $opfXml = null): UploadedFile
+    {
+        $zipPath = tempnam(sys_get_temp_dir(), 'epub') . '.epub';
+        $zip = new \ZipArchive();
+        $zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+        $zip->addFromString('mimetype', 'application/epub+zip');
+        $zip->setCompressionName('mimetype', \ZipArchive::CM_STORE);
+        $zip->addFromString('META-INF/container.xml', $containerXml ?? <<<'XML'
+<?xml version="1.0"?>
+<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles><rootfile full-path="OPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles>
+</container>
+XML);
+        $zip->addFromString('OPS/content.opf', $opfXml ?? <<<'XML'
+<?xml version="1.0"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Libro seguro</dc:title></metadata>
+  <manifest><item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/></manifest>
+  <spine><itemref idref="chapter"/></spine>
+</package>
+XML);
+        $zip->addFromString('OPS/chapter.xhtml', <<<'XHTML'
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Uno</title></head><body><p>Texto valido.</p></body></html>
+XHTML);
+
+        foreach ($entries as $name => $content) {
+            $zip->addFromString($name, $content);
+        }
+        $zip->close();
+
+        return new UploadedFile($zipPath, 'libro.epub', null, null, true);
+    }
+
     private const PDF = "%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF";
     private const ZIP = "PK\x03\x04\x14\x00\x00\x00\x00\x00";   // firma ZIP (epub/docx)
     private const EXE = "MZ\x90\x00\x03\x00\x00\x00";            // firma PE/EXE
@@ -62,17 +97,85 @@ class FileUploadSecurityTest extends TestCase
 
     public function test_acepta_epub_valido(): void
     {
-        // EPUB real = ZIP con entrada "mimetype". Construido con ZipArchive
-        // para que finfo lo reconozca como application/epub+zip / zip.
-        $zipPath = tempnam(sys_get_temp_dir(), 'epub') . '.epub';
-        $zip = new \ZipArchive();
-        $zip->open($zipPath, \ZipArchive::CREATE);
-        $zip->addFromString('mimetype', 'application/epub+zip');
-        $zip->addFromString('META-INF/container.xml', '<?xml version="1.0"?><container/>');
-        $zip->close();
-
-        $ext = $this->guard->validateWork(new UploadedFile($zipPath, 'libro.epub', null, null, true));
+        $ext = $this->guard->validateWork($this->validEpub());
         $this->assertSame('epub', $ext);
+    }
+
+    public function test_rechaza_zip_generico_o_corrupto_renombrado_a_epub(): void
+    {
+        $this->expectException(ValidationException::class);
+        $this->guard->validateWork($this->fakeWith('libro.epub', self::ZIP));
+    }
+
+    public function test_rechaza_epub_con_zip_slip(): void
+    {
+        $this->expectException(ValidationException::class);
+        $this->guard->validateWork($this->validEpub([
+            '../escape.xhtml' => '<html><body>escape</body></html>',
+        ]));
+    }
+
+    public function test_rechaza_epub_con_script_iframe_o_event_handler(): void
+    {
+        $this->expectException(ValidationException::class);
+        $this->guard->validateWork($this->validEpub([
+            'OPS/active.xhtml' => '<html><body onload="alert(1)"><script>alert(1)</script><iframe src="https://evil.test"></iframe></body></html>',
+        ]));
+    }
+
+    public function test_rechaza_epub_con_recurso_remoto_activo(): void
+    {
+        $this->expectException(ValidationException::class);
+        $this->guard->validateWork($this->validEpub([
+            'OPS/remote.xhtml' => '<html><body><img src="https://tracker.example/pixel.png"/></body></html>',
+        ]));
+    }
+
+    public function test_rechaza_epub_con_dtd_interno_y_entidad(): void
+    {
+        $this->expectException(ValidationException::class);
+        $this->guard->validateWork($this->validEpub([
+            'OPS/entity.xhtml' => '<!DOCTYPE html [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><html><body>&xxe;</body></html>',
+        ]));
+    }
+
+    public function test_rechaza_epub_con_xml_excesivamente_profundo(): void
+    {
+        $deep = '<?xml version="1.0"?><container xmlns="urn:oasis:names:tc:opendocument:xmlns:container">'
+            .str_repeat('<level>', FileGuard::EPUB_MAX_XML_DEPTH)
+            .'<rootfiles><rootfile full-path="OPS/content.opf"/></rootfiles>'
+            .str_repeat('</level>', FileGuard::EPUB_MAX_XML_DEPTH)
+            .'</container>';
+
+        $this->expectException(ValidationException::class);
+        $this->guard->validateWork($this->validEpub(containerXml: $deep));
+    }
+
+    public function test_rechaza_epub_con_documento_interno_excesivamente_grande(): void
+    {
+        $this->expectException(ValidationException::class);
+        $this->guard->validateWork($this->validEpub([
+            'OPS/huge.xhtml' => '<html><body>'.str_repeat('a', FileGuard::EPUB_MAX_MARKUP_BYTES + 1).'</body></html>',
+        ]));
+    }
+
+    public function test_rechaza_epub_con_demasiadas_entradas(): void
+    {
+        $entries = [];
+        for ($i = 0; $i <= FileGuard::ARCHIVE_MAX_ENTRIES; $i++) {
+            $entries["OPS/tiny-{$i}.dat"] = 'x';
+        }
+
+        $this->expectException(ValidationException::class);
+        $this->guard->validateWork($this->validEpub($entries));
+    }
+
+    public function test_rechaza_epub_con_relacion_de_compresion_tipo_zip_bomb(): void
+    {
+        $this->expectException(ValidationException::class);
+        $this->guard->validateWork($this->validEpub([
+            'OPS/compressed-bomb.dat' => str_repeat('A', FileGuard::ARCHIVE_RATIO_MIN_BYTES * 2),
+        ]));
     }
 
     /** EL CASO CRÍTICO: virus.exe renombrado a libro.pdf debe rechazarse. */

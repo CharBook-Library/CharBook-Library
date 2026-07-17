@@ -1,0 +1,27 @@
+[Unit]
+Description=CharBook queue worker %i
+After=network-online.target redis.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=charbook
+Group=charbook
+WorkingDirectory=/var/www/charbook/apps/api
+EnvironmentFile=/etc/charbook/api.env
+ExecStart=/usr/bin/php artisan queue:work redis --queue=default --sleep=1 --tries=3 --backoff=10 --timeout=1800 --max-time=3600 --memory=512
+ExecReload=/usr/bin/php artisan queue:restart
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=1900
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/var/www/charbook/apps/api/storage /var/www/charbook/apps/api/bootstrap/cache
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -68,7 +68,19 @@ class CategoryController extends Controller
             'icon' => 'nullable|string|max:50',
             'color' => 'nullable|string|max:7',
             'description' => 'nullable|string',
+            // Solo un nivel de anidación: el padre debe ser top-level.
+            'parent_id' => 'nullable|integer|exists:categories,id',
         ]);
+
+        if (! empty($data['parent_id'])) {
+            $parent = Category::find($data['parent_id']);
+            if ($parent?->parent_id !== null) {
+                return response()->json([
+                    'message' => 'Solo se permite un nivel de subcategorías.',
+                ], 422);
+            }
+        }
+
         return (new CategoryResource(Category::create($data)))->response()->setStatusCode(201);
     }
 
@@ -79,13 +91,38 @@ class CategoryController extends Controller
             'icon' => 'nullable|string|max:50',
             'color' => 'nullable|string|max:7',
             'description' => 'nullable|string',
+            'parent_id' => 'sometimes|nullable|integer|exists:categories,id',
         ]);
+
+        if (! empty($data['parent_id'])) {
+            if ((int) $data['parent_id'] === $category->id) {
+                return response()->json(['message' => 'Una categoría no puede ser su propio padre.'], 422);
+            }
+            $parent = Category::find($data['parent_id']);
+            if ($parent?->parent_id !== null) {
+                return response()->json([
+                    'message' => 'Solo se permite un nivel de subcategorías.',
+                ], 422);
+            }
+            // Si la categoría tiene hijas, no puede convertirse en subcategoría.
+            if (Category::where('parent_id', $category->id)->exists()) {
+                return response()->json([
+                    'message' => 'Esta categoría tiene subcategorías: muévelas primero.',
+                ], 422);
+            }
+        }
+
         $category->update($data);
         return (new CategoryResource($category))->response();
     }
 
     public function destroy(Category $category): JsonResponse
     {
+        if (Category::where('parent_id', $category->id)->exists()) {
+            return response()->json([
+                'message' => 'No se puede eliminar: la categoría tiene subcategorías.',
+            ], 422);
+        }
         $category->delete();
         return response()->json(['message' => 'Categoría eliminada.']);
     }

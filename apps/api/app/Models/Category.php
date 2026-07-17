@@ -17,6 +17,7 @@ class Category extends Model
         'icon',
         'color',
         'description',
+        'parent_id',
     ];
 
     protected static function booted(): void

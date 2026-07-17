@@ -22,6 +22,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Passkeys (WebAuthn)
+    |--------------------------------------------------------------------------
+    |
+    | Interruptor OPERATIVO de passkeys. Por sí solo NO reactiva nada: es una
+    | condición necesaria pero no suficiente. App\Support\Passkeys::operational()
+    | exige ADEMÁS que exista un verificador WebAuthn real enlazado
+    | (App\Contracts\WebAuthnVerifier), que hoy no existe. Por eso, aunque se
+    | ponga PASSKEYS_ENABLED=true, el flujo sigue bloqueado (fail-closed) hasta
+    | integrar y probar una librería WebAuthn real (p. ej. web-auth/webauthn-lib).
+    |
+    */
+
+    'passkeys_enabled' => env('PASSKEYS_ENABLED', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Authentication Guards
     |--------------------------------------------------------------------------
     |

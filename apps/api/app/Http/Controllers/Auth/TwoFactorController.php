@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Notifications\TwoFactorEmailCodeNotification;
+use App\Services\AccountStatusService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -25,6 +26,8 @@ class TwoFactorController extends Controller
     private const EMAIL_CODE_TTL_MINUTES = 10;
     private const EMAIL_CODE_MAX_ATTEMPTS = 5;
     private const EMAIL_CODE_MAX_SENDS = 3;
+
+    public function __construct(private readonly AccountStatusService $accountStatus) {}
 
     // ============ TOTP (app autenticadora) ============
 
@@ -155,6 +158,10 @@ class TwoFactorController extends Controller
         if (! $uid) throw ValidationException::withMessages(['challenge' => ['Sesion 2FA expirada.']]);
         $user = User::findOrFail($uid);
 
+        if ($blocked = $this->accountStatus->blockedResponse($user)) {
+            return $blocked;
+        }
+
         if (! in_array('email', $user->two_factor_methods ?? [], true)) {
             throw ValidationException::withMessages(['method' => ['Metodo 2FA no disponible para esta cuenta.']]);
         }
@@ -201,6 +208,10 @@ class TwoFactorController extends Controller
         $uid = cache()->get("2fa_challenge:{$data['challenge']}");
         if (! $uid) throw ValidationException::withMessages(['challenge' => ['Sesion 2FA expirada.']]);
         $user = User::findOrFail($uid);
+
+        if ($blocked = $this->accountStatus->blockedResponse($user)) {
+            return $blocked;
+        }
 
         $methods = $user->two_factor_methods ?? [];
         $ok = match ($data['method']) {

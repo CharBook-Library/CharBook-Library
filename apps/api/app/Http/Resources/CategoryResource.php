@@ -16,6 +16,7 @@ class CategoryResource extends JsonResource
             'icon' => $this->icon,
             'color' => $this->color,
             'description' => $this->description,
+            'parent_id' => $this->parent_id,
             'books_count' => $this->whenCounted('books'),
         ];
     }

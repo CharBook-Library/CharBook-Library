@@ -39,6 +39,7 @@ return [
         'client_id' => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
         'redirect' => env('GOOGLE_REDIRECT_URI'),
+        'callback_url' => env('GOOGLE_CALLBACK_URL'),
         'mobile_redirect' => env('GOOGLE_MOBILE_REDIRECT_URI', 'charbookreact://auth/callback'),
     ],
 

@@ -53,7 +53,16 @@ class CommentController extends Controller
         $user = $request->user();
         $isOwner = $comment->user_id === $user->id;
         $isAdmin = $user->hasAnyRole(['admin', 'super_admin']);
-        if (! $isOwner && ! $isAdmin) {
+        // El creador de la obra puede moderar los comentarios que recibe
+        // (sobre la obra o sobre cualquiera de sus capítulos).
+        $isWorkOwner = false;
+        $commentable = $comment->commentable;
+        if ($commentable instanceof Book) {
+            $isWorkOwner = $commentable->creator_id === $user->id;
+        } elseif ($commentable instanceof Chapter) {
+            $isWorkOwner = $commentable->book?->creator_id === $user->id;
+        }
+        if (! $isOwner && ! $isAdmin && ! $isWorkOwner) {
             abort(403, 'No puedes borrar este comentario.');
         }
 

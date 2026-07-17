@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Notifications\PasswordResetCodeNotification;
 use App\Notifications\VerifyEmailCodeNotification;
+use App\Services\AccountStatusService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -21,6 +22,8 @@ use Illuminate\Validation\ValidationException;
  */
 class AuthController extends Controller
 {
+    public function __construct(private readonly AccountStatusService $accountStatus) {}
+
     /** POST /api/auth/register */
     public function register(Request $request): JsonResponse
     {
@@ -74,15 +77,30 @@ class AuthController extends Controller
             ]);
         }
 
+        if ($blocked = $this->accountStatus->blockedResponse($user)) {
+            return $blocked;
+        }
+
         // Si el user tiene 2FA activo, devolvemos challenge en vez de token
         if ($user->two_factor_enabled) {
             $challenge = Str::random(40);
             cache()->put("2fa_challenge:{$challenge}", $user->id, now()->addMinutes(10));
 
+            // Passkey no operativa (sin verificación WebAuthn real): no la
+            // anunciamos como método para no mostrar un botón que fallaría.
+            // Los usuarios solo-passkey caen a email / códigos de recuperación.
+            $methods = collect($user->two_factor_methods ?? ['email']);
+            if (! \App\Support\Passkeys::operational()) {
+                $methods = $methods->reject(fn ($m) => $m === 'passkey')->values();
+                if ($methods->isEmpty()) {
+                    $methods = collect(['email']);
+                }
+            }
+
             return response()->json([
                 'two_factor_required' => true,
                 'challenge' => $challenge,
-                'methods' => $user->two_factor_methods ?? ['email'],
+                'methods' => $methods->all(),
             ]);
         }
 
@@ -180,9 +198,15 @@ class AuthController extends Controller
                 'code' => ['Código incorrecto o expirado.'],
             ]);
         }
-        $user->update(['email_verified_at' => now()]);
+        // forceFill: email_verified_at NO está en $fillable (a propósito), así que
+        // update() lo descartaba en silencio y el correo nunca quedaba verificado.
+        $user->forceFill(['email_verified_at' => now()])->save();
         cache()->forget("email_verify:{$user->id}");
-        return response()->json(['message' => 'Correo verificado.']);
+
+        return response()->json([
+            'message' => 'Correo verificado.',
+            'is_email_verified' => true,
+        ]);
     }
 
     // ============ helpers ============

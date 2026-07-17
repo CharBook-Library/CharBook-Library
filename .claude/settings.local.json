@@ -6,7 +6,16 @@
       "Bash(mkdir -p \"C:\\\\Projects\\\\_downloads\")",
       "Bash(git clone *)",
       "Read(//c/Projects/_downloads/anthropic-skills/**)",
-      "Read(//c/Projects/_downloads/anthropic-skills/skills/**)"
+      "Read(//c/Projects/_downloads/anthropic-skills/skills/**)",
+      "Bash(php -l app/Http/Controllers/Api/CreatorStudioController.php)",
+      "Bash(php -l routes/api.php)",
+      "Bash(php -l app/Http/Controllers/Api/CommentController.php)",
+      "Bash(php -l app/Http/Controllers/Api/CategoryController.php)",
+      "Bash(php -l app/Http/Controllers/Api/Admin/AdminUploadedWorksController.php)",
+      "Skill(dataviz)",
+      "Skill(dataviz:*)",
+      "Bash(npx tsc *)",
+      "Bash(php artisan *)"
     ]
   }
 }

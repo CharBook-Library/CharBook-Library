@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -14,6 +15,18 @@ use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
+    public const ACCOUNT_ACTIVE = 'active';
+
+    public const ACCOUNT_SUSPENDED = 'suspended';
+
+    public const ACCOUNT_BANNED = 'banned';
+
+    public const ACCOUNT_STATUSES = [
+        self::ACCOUNT_ACTIVE,
+        self::ACCOUNT_SUSPENDED,
+        self::ACCOUNT_BANNED,
+    ];
+
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, HasApiTokens, HasRoles;
 
@@ -43,6 +56,11 @@ class User extends Authenticatable
         'preferences',
         'subscription_tier',
         'subscription_ends_at',
+        'account_status',
+        'account_status_reason',
+        'account_status_changed_at',
+        'account_status_expires_at',
+        'account_status_changed_by',
     ];
 
     protected $hidden = [
@@ -56,6 +74,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'last_seen_at' => 'datetime',
             'password' => 'hashed',
             'is_public_profile' => 'boolean',
             'trust_score' => 'integer',
@@ -66,7 +85,14 @@ class User extends Authenticatable
             'two_factor_confirmed_at' => 'datetime',
             'preferences' => 'array',
             'subscription_ends_at' => 'datetime',
+            'account_status_changed_at' => 'datetime',
+            'account_status_expires_at' => 'datetime',
         ];
+    }
+
+    public function accountStatusChangedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'account_status_changed_by');
     }
 
     public function passkeys(): HasMany
@@ -274,6 +300,25 @@ class User extends Authenticatable
     {
         $id = $user instanceof User ? $user->id : $user;
         return $this->following()->where('users.id', $id)->exists();
+    }
+
+    // -------------------- Bloqueos --------------------
+
+    /** Usuarios que YO he bloqueado. */
+    public function blockedUsers(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            User::class,
+            'user_blocks',
+            'blocker_id',
+            'blocked_id'
+        )->withTimestamps();
+    }
+
+    public function hasBlocked(User|int $user): bool
+    {
+        $id = $user instanceof User ? $user->id : $user;
+        return $this->blockedUsers()->where('users.id', $id)->exists();
     }
 
     // -------------------- Username auto-generation --------------------

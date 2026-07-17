@@ -2,26 +2,56 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Contracts\WebAuthnVerifier;
 use App\Http\Controllers\Controller;
 use App\Models\Passkey;
-use App\Models\User;
+use App\Services\AccountStatusService;
+use App\Support\Passkeys;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
  * Registro y verificación de Passkeys (WebAuthn).
  *
- *  El flujo se hace 100% en el navegador con navigator.credentials. Aquí
- *  guardamos el resultado del navegador. La verificación criptográfica completa
- *  se hace con la librería web-auth/webauthn-lib (si se instala). De momento,
- *  almacenamos credenciales y permitimos verificar por presencia del
- *  credential_id devuelto por el navegador, suficiente para uso interno.
+ *  ⚠️ FAIL-CLOSED: passkeys NO operativas.
+ *
+ *  La implementación previa NO verificaba la afirmación criptográfica WebAuthn:
+ *  emitía un token de sesión de 30 días con solo poseer un `credential_id`
+ *  (identificador PÚBLICO en WebAuthn) + un challenge, sin comprobar jamás la
+ *  firma contra la clave pública almacenada; y el registro guardaba cualquier
+ *  credencial sin attestation. Ese código inseguro fue ELIMINADO.
+ *
+ *  El registro y el login por passkey solo funcionarán cuando exista un
+ *  verificador WebAuthn REAL enlazado (App\Contracts\WebAuthnVerifier) — ver
+ *  App\Support\Passkeys::operational(). Ninguna variable de entorno reactiva
+ *  por sí sola el flujo: PASSKEYS_ENABLED=true sin verificador sigue bloqueado.
+ *  Las credenciales existentes se conservan en la base pero no se pueden usar.
  */
 class PasskeyController extends Controller
 {
-    /** GET /api/me/passkeys */
+    public function __construct(private readonly AccountStatusService $accountStatus) {}
+
+    /**
+     * Fail-closed: sin verificador WebAuthn real, todo flujo que emita o enrole
+     * credenciales passkey se rechaza con un contrato JSON estable. Devuelve
+     * null solo si las passkeys están realmente operativas (verificador real
+     * enlazado + interruptor activo), en cuyo caso el llamador delega en él.
+     */
+    private function unavailableResponse(): ?JsonResponse
+    {
+        if (Passkeys::operational()) {
+            return null;
+        }
+
+        return response()->json([
+            'code' => 'PASSKEYS_NOT_IMPLEMENTED',
+            'message' => 'El acceso con passkey no está disponible: falta la '
+                . 'verificación WebAuthn. Usa tu contraseña y otro método de verificación.',
+        ], 501);
+    }
+
+    /** GET /api/me/passkeys — listar credenciales (nunca expone credential_id/public_key). */
     public function index(Request $request): JsonResponse
     {
         return response()->json([
@@ -31,71 +61,29 @@ class PasskeyController extends Controller
         ]);
     }
 
-    /** POST /api/me/passkeys/options — devuelve challenge para registrar */
+    /** POST /api/me/passkeys/options — challenge de registro (delegado al verificador real). */
     public function registerOptions(Request $request): JsonResponse
     {
-        $user = $request->user();
-        $challenge = Str::random(48);
-        cache()->put("passkey_register:{$user->id}", $challenge, now()->addMinutes(5));
+        if ($unavailable = $this->unavailableResponse()) {
+            return $unavailable;
+        }
 
-        return response()->json([
-            'challenge' => base64_encode($challenge),
-            'rp' => [
-                'name' => 'CharBook Library',
-                'id' => parse_url(config('app.url'), PHP_URL_HOST) ?: 'localhost',
-            ],
-            'user' => [
-                'id' => base64_encode((string) $user->id),
-                'name' => $user->email,
-                'displayName' => $user->name,
-            ],
-            'pubKeyCredParams' => [
-                ['type' => 'public-key', 'alg' => -7],   // ES256
-                ['type' => 'public-key', 'alg' => -257], // RS256
-            ],
-            'authenticatorSelection' => [
-                'userVerification' => 'preferred',
-                'residentKey' => 'preferred',
-            ],
-            'timeout' => 60000,
-            'attestation' => 'none',
-        ]);
+        // Solo alcanzable con un verificador WebAuthn real enlazado (trabajo futuro).
+        return app(WebAuthnVerifier::class)->registrationOptions($request, $request->user());
     }
 
-    /** POST /api/me/passkeys — guarda passkey nuevo */
+    /** POST /api/me/passkeys — registrar credencial (requiere attestation real). */
     public function store(Request $request): JsonResponse
     {
-        $data = $request->validate([
-            'credential_id' => ['required', 'string', 'max:512'],
-            'public_key' => ['required', 'string'],
-            'label' => ['nullable', 'string', 'max:80'],
-            'device_type' => ['nullable', 'string', 'max:30'],
-            'transports' => ['nullable', 'string', 'max:80'],
-        ]);
-        $user = $request->user();
+        if ($unavailable = $this->unavailableResponse()) {
+            return $unavailable;
+        }
 
-        $passkey = $user->passkeys()->create([
-            'credential_id' => $data['credential_id'],
-            'public_key' => $data['public_key'],
-            'label' => $data['label'] ?? 'Passkey',
-            'device_type' => $data['device_type'] ?? null,
-            'transports' => $data['transports'] ?? null,
-        ]);
-
-        // Activar 'passkey' como método 2FA
-        $methods = $user->two_factor_methods ?? [];
-        if (! in_array('passkey', $methods)) $methods[] = 'passkey';
-        $user->update([
-            'two_factor_methods' => $methods,
-            'two_factor_enabled' => true,
-            'two_factor_confirmed_at' => $user->two_factor_confirmed_at ?? now(),
-        ]);
-
-        cache()->forget("passkey_register:{$user->id}");
-        return response()->json(['data' => $passkey], 201);
+        // Solo alcanzable con un verificador WebAuthn real enlazado (trabajo futuro).
+        return app(WebAuthnVerifier::class)->register($request, $request->user());
     }
 
-    /** DELETE /api/me/passkeys/{id} */
+    /** DELETE /api/me/passkeys/{id} — el usuario siempre puede retirar su credencial. */
     public function destroy(Request $request, Passkey $passkey): JsonResponse
     {
         if ($passkey->user_id !== $request->user()->id) abort(403);
@@ -110,24 +98,33 @@ class PasskeyController extends Controller
         return response()->json(['message' => 'Passkey eliminada.']);
     }
 
-    /** POST /api/auth/passkey/verify — durante login */
+    /** POST /api/auth/passkey/verify — login por passkey. */
     public function verify(Request $request): JsonResponse
     {
+        // Se valida y resuelve el usuario del challenge de 2FA para poder aplicar
+        // el bloqueo de cuenta con el motivo exacto (suspendida/baneada → 423).
         $data = $request->validate([
             'challenge' => ['required', 'string'],
             'credential_id' => ['required', 'string'],
         ]);
         $uid = cache()->get("2fa_challenge:{$data['challenge']}");
         if (! $uid) throw ValidationException::withMessages(['challenge' => ['Sesión expirada.']]);
-        $user = User::findOrFail($uid);
+        $user = \App\Models\User::findOrFail($uid);
 
-        $pk = $user->passkeys()->where('credential_id', $data['credential_id'])->first();
-        if (! $pk) throw ValidationException::withMessages(['credential_id' => ['Passkey no reconocida.']]);
+        if ($blocked = $this->accountStatus->blockedResponse($user)) {
+            return $blocked;
+        }
 
-        $pk->update(['last_used_at' => now(), 'counter' => $pk->counter + 1]);
-        cache()->forget("2fa_challenge:{$data['challenge']}");
+        // Fail-closed: sin verificador WebAuthn real jamás se emite token. El
+        // código anterior (autenticar por mera presencia de credential_id) fue
+        // eliminado; ninguna variable de entorno puede reintroducirlo.
+        if ($unavailable = $this->unavailableResponse()) {
+            return $unavailable;
+        }
 
-        $token = $user->createToken('charbook-web', expiresAt: now()->addDays(30))->plainTextToken;
-        return response()->json(['token' => $token]);
+        // Solo alcanzable con un verificador WebAuthn real enlazado (trabajo futuro):
+        // la verificación criptográfica (firma, origin, RP ID, counter) y la
+        // emisión de sesión son responsabilidad de esa implementación.
+        return app(WebAuthnVerifier::class)->authenticate($request, $user);
     }
 }

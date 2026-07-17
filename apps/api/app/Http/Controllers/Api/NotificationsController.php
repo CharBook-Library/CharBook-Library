@@ -97,6 +97,35 @@ class NotificationsController extends Controller
         return response()->json(['message' => 'Notificación eliminada.']);
     }
 
+    /**
+     * DELETE /api/me/notifications
+     * Borrado masivo: { ids: [1,2,3] } para una selección, { all: true } para
+     * todas. Solo borra notificaciones del propio usuario.
+     */
+    public function destroyBulk(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'ids' => ['required_without:all', 'array', 'max:500'],
+            'ids.*' => ['integer'],
+            'all' => ['sometimes', 'boolean'],
+        ]);
+
+        $query = $request->user()->notifications();
+
+        if ($request->boolean('all')) {
+            $deleted = $query->delete();
+        } else {
+            $deleted = $query->whereIn('id', $data['ids'] ?? [])->delete();
+        }
+
+        return response()->json([
+            'message' => $deleted === 1
+                ? '1 notificación eliminada.'
+                : "{$deleted} notificaciones eliminadas.",
+            'deleted' => $deleted,
+        ]);
+    }
+
     private function assertOwnership(Notification $n, $user): void
     {
         if ($n->user_id !== $user->id) abort(403);

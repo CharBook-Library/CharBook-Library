@@ -1,0 +1,18 @@
+[Unit]
+Description=CharBook Laravel scheduler tick
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=charbook
+Group=charbook
+WorkingDirectory=/var/www/charbook/apps/api
+EnvironmentFile=/etc/charbook/api.env
+ExecStart=/usr/bin/php artisan schedule:run --no-interaction
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/var/www/charbook/apps/api/storage /var/www/charbook/apps/api/bootstrap/cache
+StandardOutput=journal
+StandardError=journal
