@@ -1,0 +1,189 @@
+{
+  "common": {
+    "back": "Volver",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "submit": "Enviar",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "loading": "Cargando…",
+    "saving": "Guardando…",
+    "error": "Ocurrió un error",
+    "success": "Listo",
+    "yes": "Sí",
+    "no": "No",
+    "next": "Siguiente",
+    "previous": "Anterior",
+    "close": "Cerrar"
+  },
+  "nav": {
+    "home": "ホーム",
+    "catalog": "カタログ",
+    "creators": "クリエイター",
+    "community": "コミュニティ",
+    "free": "無料の本"
+  },
+  "header": {
+    "search_placeholder": "本を検索...",
+    "search_aria": "検索",
+    "user_menu_aria": "ユーザーメニュー",
+    "my_atelier": "マイアトリエ",
+    "my_library": "マイライブラリ",
+    "my_anthologies": "マイアンソロジー",
+    "edit_profile": "プロフィールを編集",
+    "requests": "リクエスト",
+    "my_studio": "マイスタジオ",
+    "my_application": "クリエイター申請",
+    "become_creator": "クリエイターになる",
+    "admin_panel": "管理パネル",
+    "mod_panel": "モデレーションパネル",
+    "sign_in": "ログイン",
+    "sign_out": "ログアウト",
+    "account_aria": "アカウント"
+  },
+  "language": {
+    "selector_label": "Idioma",
+    "switch_to": "Cambiar a {language}",
+    "current": "Idioma actual",
+    "saved": "Idioma actualizado a {language}"
+  },
+  "creator": {
+    "landing": {
+      "title": "Publica tus obras en CharBook Atelier",
+      "subtitle": "Un espacio para creadores que tratan la escritura como arte, no como contenido.",
+      "cta_apply": "Empezar mi solicitud",
+      "cta_status": "Ver mi solicitud",
+      "benefits": {
+        "audience": {
+          "title": "Audiencia curada",
+          "desc": "Lectores que buscan obras de calidad, no scroll infinito."
+        },
+        "no_algorithm": {
+          "title": "Sin algoritmo manipulador",
+          "desc": "Tu obra brilla por su valor, no por su engagement."
+        },
+        "monetization": {
+          "title": "Monetización futura",
+          "desc": "Suscripciones, propinas y ventas directas. Tú te quedas el 90%."
+        },
+        "community": {
+          "title": "Comunidad de calidad",
+          "desc": "Conecta con lectores y otros creadores serios."
+        }
+      },
+      "checklist_title": "Antes de postular, completa estos requisitos:",
+      "ready_message": "¡Cumples todos los requisitos! Puedes empezar tu solicitud.",
+      "not_ready_message": "Cumple los puntos pendientes para poder postularte."
+    },
+    "wizard": {
+      "step_of": "Paso {current} de {total}",
+      "step1_title": "Cuéntanos quién eres",
+      "step2_title": "Muéstranos tu obra",
+      "step3_title": "Qué publicarás",
+      "step4_title": "Por qué quieres unirte",
+      "display_name": "Nombre público",
+      "display_name_help": "Cómo aparecerás en CharBook",
+      "pen_name": "Seudónimo (opcional)",
+      "pen_name_help": "Si firmas con un alias artístico",
+      "bio_long": "Tu biografía",
+      "bio_long_help": "500-2000 caracteres. Cuéntanos quién eres como autor.",
+      "sample_url": "Enlace a una obra ejemplo",
+      "sample_url_help": "Medium, Wattpad, tu web, un Google Doc público o un PDF.",
+      "genres": "Géneros en los que escribirás",
+      "genres_help": "Elige hasta 5",
+      "languages": "Idiomas en los que publicarás",
+      "publish_frequency": "Frecuencia esperada",
+      "publish_frequency_weekly": "Semanal",
+      "publish_frequency_biweekly": "Quincenal",
+      "publish_frequency_monthly": "Mensual",
+      "publish_frequency_irregular": "Irregular",
+      "publish_plan": "Tu plan (opcional)",
+      "publish_plan_help": "Cuéntanos brevemente qué planeas publicar",
+      "why_join": "¿Por qué quieres unirte a CharBook?",
+      "why_join_help": "250-1000 caracteres. Sé concreto, no genérico.",
+      "social_links": "Enlaces sociales (opcional)",
+      "submit": "Enviar solicitud",
+      "submitting": "Enviando…",
+      "submitted_success": "¡Solicitud enviada! Te avisaremos cuando la revisemos."
+    },
+    "my_application": {
+      "title": "Mi solicitud",
+      "status_pending": "En revisión",
+      "status_pending_desc": "Tu solicitud está en cola. Te notificaremos en cuanto la revisemos.",
+      "status_changes_requested": "Cambios solicitados",
+      "status_changes_requested_desc": "El revisor te ha pedido ajustes. Revisa las notas y vuelve a enviar.",
+      "status_approved": "¡Aprobada!",
+      "status_approved_desc": "Ya eres Creador en CharBook Atelier. Pasa por el Studio para empezar.",
+      "status_rejected": "No aprobada",
+      "status_rejected_desc": "Tu solicitud fue rechazada. Puedes volver a postular tras {days} días.",
+      "reviewer_notes": "Notas del revisor",
+      "submitted_on": "Enviada el {date}",
+      "edit_resubmit": "Editar y reenviar",
+      "go_to_studio": "Ir al Studio"
+    }
+  },
+  "admin": {
+    "creator_apps": {
+      "title": "Solicitudes de Creador",
+      "subtitle": "Revisa y decide qué lectores se convierten en creadores.",
+      "filter_pending": "Pendientes",
+      "filter_all": "Todas",
+      "no_apps": "No hay solicitudes en este estado.",
+      "rubric_title": "Rúbrica de evaluación",
+      "rubric_quality": "Calidad de la muestra",
+      "rubric_commitment": "Compromiso",
+      "rubric_professionalism": "Profesionalismo",
+      "rubric_fit": "Encaje editorial",
+      "score_total": "Puntuación total: {score}/12",
+      "min_to_approve": "Mínimo {min}/12 para aprobar",
+      "action_approve": "Aprobar",
+      "action_reject": "Rechazar",
+      "action_request_changes": "Solicitar cambios",
+      "notes_placeholder_changes": "Indica qué necesita mejorar (mínimo 20 caracteres)",
+      "notes_placeholder_reject": "Indica el motivo del rechazo (mínimo 20 caracteres)",
+      "applicant_context": "Contexto del solicitante",
+      "applicant_account_age": "Cuenta creada hace {days} días",
+      "applicant_reviews": "{count} reseñas escritas",
+      "applicant_anthologies": "{count} antologías",
+      "applicant_followers": "{count} seguidores"
+    },
+    "reports": {
+      "title": "Reportes",
+      "subtitle": "Modera contenido reportado por la comunidad.",
+      "filter_open": "Abiertos",
+      "filter_in_review": "En revisión",
+      "filter_resolved": "Resueltos",
+      "no_reports": "No hay reportes en este estado.",
+      "reason_spam": "Spam",
+      "reason_abuse": "Abuso",
+      "reason_copyright": "Copyright",
+      "reason_illegal": "Ilegal",
+      "reason_inappropriate": "Inapropiado",
+      "reason_misleading": "Engañoso",
+      "reason_other": "Otro",
+      "target_book": "Libro",
+      "target_user": "Usuario",
+      "target_review": "Reseña",
+      "target_comment": "Comentario",
+      "action_dismiss": "Descartar",
+      "action_resolve": "Resolver",
+      "resolution_action_label": "Acción a tomar",
+      "resolution_action_warn": "Advertir",
+      "resolution_action_hide": "Ocultar contenido",
+      "resolution_action_delete": "Eliminar contenido",
+      "resolution_action_suspend_temp": "Suspender (temporal)",
+      "resolution_action_suspend_perm": "Suspender (permanente)",
+      "resolution_action_ban": "Banear"
+    }
+  },
+  "report": {
+    "button": "Reportar",
+    "dialog_title": "Reportar contenido",
+    "select_reason": "Selecciona un motivo",
+    "details_label": "Detalles (opcional)",
+    "details_placeholder": "Aporta contexto adicional…",
+    "submit": "Enviar reporte",
+    "success": "Reporte enviado. Gracias por ayudarnos a mantener la comunidad sana.",
+    "duplicate": "Ya reportaste esto recientemente."
+  }
+}

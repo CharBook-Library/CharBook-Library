@@ -1,0 +1,19 @@
+# Librerías de skills de terceros vendorizadas: no son CharBook Library.
+# Su documentación de diseño ensuciaría el grafo y es la parte cara de extraer.
+.agents/
+.claude/skills/
+
+# Bundles minificados de terceros: cada uno aporta cientos de nodos de ruido
+# (pdf.worker.min.mjs por si solo copaba 10 de las comunidades mas grandes).
+*.min.js
+*.min.mjs
+*.min.css
+apps/web/public/
+
+# Artefactos y dependencias
+node_modules/
+vendor/
+storage/framework/
+storage/logs/
+public/build/
+.next/
