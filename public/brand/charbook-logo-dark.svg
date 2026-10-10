@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 212 48" role="img" aria-labelledby="title">
+  <title id="title">CharBook Library</title>
+  <g fill="none" stroke="oklch(0.96 0 0)" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4">
+    <path d="M22 12.5c-5-3.3-10.6-3.9-16-2.2v20.2c5.5-1.6 11.1-.8 16 2.4"/>
+    <path d="M22 12.5c5-3.3 10.6-3.9 16-2.2v20.2c-5.5-1.6-11.1-.8-16 2.4"/>
+    <path d="M22 12.5v20.4"/>
+    <path d="M10.5 16.2c2.4.1 4.8.8 6.8 2" stroke="oklch(0.72 0.15 32)"/>
+    <path d="M27 18.2c2.1-1.2 4.4-1.9 6.8-2" stroke="oklch(0.72 0.15 32)"/>
+  </g>
+  <text x="54" y="29" fill="oklch(0.97 0 0)" font-family="Georgia, 'Times New Roman', serif" font-size="25" font-weight="600" letter-spacing="-0.7">CharBook</text>
+  <text x="56" y="40" fill="oklch(0.78 0 0)" font-family="system-ui, sans-serif" font-size="7" font-weight="650" letter-spacing="2.3">LIBRARY</text>
+</svg>

@@ -1,0 +1,17 @@
+{
+  "name": "CharBook Library",
+  "short_name": "CharBook",
+  "description": "Biblioteca social para leer y publicar historias.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "oklch(1 0 0)",
+  "theme_color": "oklch(0.28 0.055 286)",
+  "icons": [
+    {
+      "src": "/brand/charbook-app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
