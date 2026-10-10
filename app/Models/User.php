@@ -46,4 +46,10 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    // Relación con licencias (HU-08)
+    public function licencias()
+    {
+        return $this->hasMany(\App\Models\Licencia::class);
+    }
 }
