@@ -1,12 +1,14 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\ObraController;
+use App\Http\Controllers\LicenciaController;
 
 Route::get('/', function () {
     return view('welcome');
 });
 
-use App\Http\Controllers\LicenciaController;
+Route::resource('obras', ObraController::class);
 
 Route::get('/licencias', [LicenciaController::class, 'index'])->name('licencias.index');
 Route::get('/licencias/crear', [LicenciaController::class, 'create'])->name('licencias.create');
