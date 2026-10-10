@@ -8,8 +8,10 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+// Rutas de la HU-05 (obras)
 Route::resource('obras', ObraController::class);
 
+// Rutas de la HU-08 (licencias)
 Route::get('/licencias', [LicenciaController::class, 'index'])->name('licencias.index');
 Route::get('/licencias/crear', [LicenciaController::class, 'create'])->name('licencias.create');
 Route::post('/licencias', [LicenciaController::class, 'store'])->name('licencias.store');
