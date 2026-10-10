@@ -1,0 +1,119 @@
+# Pipeline de CI de CharBook Library
+# Etapa 1: Build  ->  Etapa 2: Pruebas (solo corre si el build salio bien)
+
+name: CI CharBook
+
+on:
+  push:            # se ejecuta en cada push a cualquier rama
+  pull_request:    # y en cada pull request
+  workflow_dispatch:   # tambien se puede correr a mano desde la pestaña Actions
+
+jobs:
+
+  # ---------------- ETAPA 1: BUILD ----------------
+  build:
+    name: Build (API + Web)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Obtener el codigo del repositorio
+        uses: actions/checkout@v4
+
+      - name: 2. Configurar entorno PHP 8.3 (API Laravel)
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, zip, gd, intl, bcmath, fileinfo, pdo_sqlite, sqlite3
+          tools: composer:v2
+
+      - name: 2. Configurar entorno Node 22 (Web Next.js)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 3. Instalar dependencias de la API (Composer)
+        working-directory: apps/api
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: 3. Instalar dependencias de la Web (npm)
+        working-directory: apps/web
+        run: npm install --no-audit --no-fund
+
+      - name: 4. Build de la API (revisar sintaxis PHP y optimizar autoload)
+        working-directory: apps/api
+        run: |
+          find app config database routes -name "*.php" -print0 | xargs -0 -n1 php -l > /dev/null
+          composer dump-autoload --optimize
+          echo "API compilada sin errores de sintaxis"
+
+      - name: 4. Build de la Web (next build)
+        working-directory: apps/web
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+        run: npm run build
+
+  # ---------------- ETAPA 2: PRUEBAS ----------------
+  pruebas:
+    name: Pruebas automatizadas
+    runs-on: ubuntu-latest
+    needs: build      # si el build falla, esta etapa NO se ejecuta (queda como omitida)
+
+    steps:
+      - name: Obtener el codigo del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar entorno PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, zip, gd, intl, bcmath, fileinfo, pdo_sqlite, sqlite3
+          tools: composer:v2
+
+      - name: Configurar entorno Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Instalar dependencias de la API
+        working-directory: apps/api
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Preparar .env de pruebas de la API
+        working-directory: apps/api
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Pruebas de la API (PHPUnit - unitarias y de funcionalidad)
+        id: pruebas_api
+        working-directory: apps/api
+        run: |
+          mkdir -p reportes
+          php artisan test --log-junit reportes/api-junit.xml
+
+      - name: Pruebas de la Web (node --test)
+        id: pruebas_web
+        if: always()     # se corren aunque fallen las de la API, para ver todos los resultados
+        working-directory: apps/web
+        run: |
+          mkdir -p reportes
+          node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=reportes/web-junit.xml tests/*.test.mts
+
+      - name: Resumen de resultados
+        if: always()
+        run: |
+          echo "## Resultado de las pruebas" >> $GITHUB_STEP_SUMMARY
+          echo "| Prueba | Resultado |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| API (PHPUnit) | ${{ steps.pruebas_api.outcome }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Web (node --test) | ${{ steps.pruebas_web.outcome }} |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Guardar reportes de pruebas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reportes-de-pruebas
+          path: |
+            apps/api/reportes/
+            apps/web/reportes/
+          if-no-files-found: warn
