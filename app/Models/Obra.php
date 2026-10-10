@@ -21,6 +21,13 @@ class Obra extends Model
         'idioma',
         'duracion',
         'paginas',
+        'precio',
+        'valoracion',
+    ];
+
+    protected $casts = [
+        'precio' => 'decimal:2',
+        'valoracion' => 'decimal:1',
     ];
 
     public const GENEROS = [

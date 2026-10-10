@@ -51,6 +51,9 @@
 
         <label>Duración: <input type="number" name="duracion" value="{{ $obra->duracion }}" min="1"></label><br>
         <label>Páginas: <input type="number" name="paginas" value="{{ $obra->paginas }}" min="1"></label><br>
+        <label>Portada (URL de imagen): <input type="url" name="portada" value="{{ old('portada', $obra->portada) }}" placeholder="https://ejemplo.com/portada.jpg"></label><br>
+        <label>Precio (MXN): <input type="number" name="precio" min="0" max="999999.99" step="0.01" value="{{ old('precio', $obra->precio) }}" required></label><br>
+        <label>Valoración (0 a 5): <input type="number" name="valoracion" min="0" max="5" step="0.1" value="{{ old('valoracion', $obra->valoracion) }}"></label><br>
 
         <button type="submit">Actualizar</button>
     </form>

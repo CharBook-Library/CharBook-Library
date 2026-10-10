@@ -51,6 +51,9 @@
 
         <label>Duración (minutos, solo audiolibro): <input type="number" name="duracion" min="1"></label><br>
         <label>Páginas (solo e-book): <input type="number" name="paginas" min="1"></label><br>
+        <label>Portada (URL de imagen): <input type="url" name="portada" value="{{ old('portada') }}" placeholder="https://ejemplo.com/portada.jpg"></label><br>
+        <label>Precio (MXN): <input type="number" name="precio" min="0" max="999999.99" step="0.01" value="{{ old('precio', '0.00') }}" required></label><br>
+        <label>Valoración (0 a 5): <input type="number" name="valoracion" min="0" max="5" step="0.1" value="{{ old('valoracion') }}"></label><br>
 
         <button type="submit">Guardar</button>
     </form>

@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\Licencia;
 use App\Models\Obra;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -85,5 +87,93 @@ class ObraTest extends TestCase
         ]);
 
         $response->assertSessionHasErrors('duracion');
+    }
+
+    public function test_puede_buscar_obras_por_titulo_autor_o_genero(): void
+    {
+        $obra = Obra::create([
+            'titulo' => 'El Principito',
+            'autor' => 'Saint-Exupéry',
+            'formato' => 'ebook',
+            'sinopsis' => 'Un piloto conoce a un príncipe.',
+            'genero' => 'Ficción',
+            'idioma' => 'Español',
+            'paginas' => 96,
+        ]);
+        Obra::create([
+            'titulo' => 'La casa',
+            'autor' => 'Otra autora',
+            'formato' => 'ebook',
+            'sinopsis' => 'Una historia.',
+            'genero' => 'Misterio',
+            'idioma' => 'Español',
+            'paginas' => 120,
+        ]);
+
+        $response = $this->get('/obras?buscar=principito');
+
+        $response->assertOk()
+            ->assertSee('El Principito')
+            ->assertDontSee('La casa')
+            ->assertSee(route('obras.show', ['obra' => $obra, 'buscar' => 'principito']), false);
+    }
+
+    public function test_detalle_muestra_datos_comerciales_y_conserva_la_busqueda(): void
+    {
+        $obra = Obra::create([
+            'titulo' => 'El Principito',
+            'autor' => 'Saint-Exupéry',
+            'formato' => 'ebook',
+            'sinopsis' => 'Un piloto conoce a un príncipe.',
+            'genero' => 'Ficción',
+            'idioma' => 'Español',
+            'paginas' => 96,
+            'portada' => 'https://example.com/cover.jpg',
+            'precio' => 129.50,
+            'valoracion' => 4.7,
+        ]);
+
+        $response = $this->get(route('obras.show', ['obra' => $obra, 'buscar' => 'principito']));
+
+        $response->assertOk()
+            ->assertSee('https://example.com/cover.jpg')
+            ->assertSee('El Principito')
+            ->assertSee('Saint-Exupéry')
+            ->assertSee('Ficción')
+            ->assertSee('Un piloto conoce a un príncipe.')
+            ->assertSee('96 páginas')
+            ->assertSee('$129.50')
+            ->assertSee('4.7')
+            ->assertSee('Comprar')
+            ->assertSee(route('obras.index', ['buscar' => 'principito']), false);
+    }
+
+    public function test_muestra_leer_o_escuchar_si_el_usuario_tiene_licencia_vigente(): void
+    {
+        $user = User::factory()->create();
+        $obra = Obra::create([
+            'titulo' => 'El Principito',
+            'autor' => 'Saint-Exupéry',
+            'formato' => 'audiolibro',
+            'sinopsis' => 'Un piloto conoce a un príncipe.',
+            'genero' => 'Ficción',
+            'idioma' => 'Español',
+            'duracion' => 98,
+            'precio' => 129.50,
+        ]);
+        Licencia::create([
+            'user_id' => $user->id,
+            'obra_id' => $obra->id,
+            'fecha_inicio' => today()->subDay(),
+            'fecha_vencimiento' => today()->addDays(30),
+            'activa' => true,
+        ]);
+
+        $response = $this->actingAs($user)->get(route('obras.show', $obra));
+
+        $response->assertOk()
+            ->assertSee('Ya tienes esta obra')
+            ->assertSee('Leer o escuchar')
+            ->assertSee('98 min');
     }
 }
