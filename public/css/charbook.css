@@ -1,0 +1,28 @@
+/* CharBook — identidad visual (HU-01). Único archivo de estilos globales. */
+@import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@700&family=Inter:wght@400;600&display=swap');
+
+:root {
+  /* Paleta (5 colores) */
+  --cb-primario:    #1F3A5F; /* azul tinta: títulos y barra */
+  --cb-acento:      #A3461F; /* terracota: botones y enlaces */
+  --cb-fondo:       #F8F5EF; /* papel: fondo general */
+  --cb-texto:       #1C1C1E; /* tinta: texto principal */
+  --cb-texto-suave: #5A5F66; /* gris: texto secundario */
+
+  /* Tipografía */
+  --cb-fuente-titulos: 'Merriweather', Georgia, serif;
+  --cb-fuente-cuerpo:  'Inter', system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: var(--cb-fondo);
+  color: var(--cb-texto);
+  font-family: var(--cb-fuente-cuerpo);
+  line-height: 1.6;
+}
+
+h1, h2, h3 { font-family: var(--cb-fuente-titulos); color: var(--cb-primario); }
+a { color: var(--cb-acento); }
+.btn { background: var(--cb-acento); color: #FFFFFF; border: 0; padding: .6rem 1.2rem; border-radius: 6px; cursor: pointer; }
+.texto-suave { color: var(--cb-texto-suave); }
