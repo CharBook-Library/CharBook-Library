@@ -142,6 +142,7 @@ export interface CanApplyResponse {
 
 export interface CreatorApplication {
   id: number;
+  folio: string;
   status: CreatorAppStatus;
   display_name: string;
   pen_name: string | null;

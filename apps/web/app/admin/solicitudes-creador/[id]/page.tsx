@@ -127,7 +127,8 @@ export default function AdminCreatorAppDetailPage() {
               )}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Enviada hace {Math.floor((Date.now() - new Date(app.submitted_at).getTime()) / 86_400_000)} día(s)
+              {t("folio")}: {app.folio} · {new Date(app.submitted_at).toLocaleDateString()}
+              {" · "}Enviada hace {Math.floor((Date.now() - new Date(app.submitted_at).getTime()) / 86_400_000)} día(s)
             </p>
           </div>
 

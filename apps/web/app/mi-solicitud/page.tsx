@@ -92,6 +92,8 @@ export default function MiSolicitudPage() {
 
       <h1 className="font-serif text-3xl font-bold tracking-tight mb-2">{t("title")}</h1>
       <p className="text-sm text-muted-foreground mb-8">
+        {t("folio")}: <span className="font-medium text-foreground">{app.folio}</span>
+        {" · "}
         {t("submitted_on", {
           date: new Date(app.submitted_at).toLocaleDateString("es", {
             year: "numeric",

@@ -124,6 +124,8 @@ export default function AdminCreatorAppsPage() {
                       @{app.user?.username} · {app.user?.email}
                     </div>
                     <div className="mt-1 flex items-center gap-3 text-[11px] text-muted-foreground">
+                      <span>{t("folio")}: {app.folio}</span>
+                      <span>· {new Date(app.submitted_at).toLocaleDateString()}</span>
                       <span className="inline-flex items-center gap-1">
                         <Clock className="h-3 w-3" />
                         Hace {daysSince(app.submitted_at)} día{daysSince(app.submitted_at) === 1 ? "" : "s"}

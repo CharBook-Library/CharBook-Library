@@ -116,6 +116,7 @@
       "status_approved_desc": "Ya eres Creador en CharBook Atelier. Pasa por el Studio para empezar.",
       "status_rejected": "No aprobada",
       "status_rejected_desc": "Tu solicitud fue rechazada. Puedes volver a postular tras {days} días.",
+      "folio": "Folio",
       "reviewer_notes": "Notas del revisor",
       "submitted_on": "Enviada el {date}",
       "edit_resubmit": "Editar y reenviar",
@@ -126,6 +127,7 @@
     "creator_apps": {
       "title": "Solicitudes de Creador",
       "subtitle": "Revisa y decide qué lectores se convierten en creadores.",
+      "folio": "Folio",
       "filter_pending": "Pendientes",
       "filter_all": "Todas",
       "no_apps": "No hay solicitudes en este estado.",

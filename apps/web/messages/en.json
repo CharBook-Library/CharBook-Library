@@ -116,6 +116,7 @@
       "status_approved_desc": "You are now a Creator on CharBook Atelier. Head to the Studio to begin.",
       "status_rejected": "Not approved",
       "status_rejected_desc": "Your application was rejected. You can reapply in {days} days.",
+      "folio": "Reference",
       "reviewer_notes": "Reviewer notes",
       "submitted_on": "Submitted on {date}",
       "edit_resubmit": "Edit and resubmit",
@@ -126,6 +127,7 @@
     "creator_apps": {
       "title": "Creator Applications",
       "subtitle": "Review and decide which readers become creators.",
+      "folio": "Reference",
       "filter_pending": "Pending",
       "filter_all": "All",
       "no_apps": "No applications in this state.",

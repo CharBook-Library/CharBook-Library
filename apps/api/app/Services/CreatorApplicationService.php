@@ -3,8 +3,11 @@
 namespace App\Services;
 
 use App\Models\CreatorApplication;
+use App\Models\Notification;
 use App\Models\Report;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * Lógica de aprobación de Creadores.
@@ -152,45 +155,90 @@ class CreatorApplicationService
             );
         }
 
-        $app->update([
-            'status' => CreatorApplication::STATUS_APPROVED,
-            'reviewer_id' => $reviewer->id,
-            'reviewer_notes' => $notes,
-            'reviewed_at' => now(),
-        ]);
+        DB::transaction(function () use ($app, $reviewer, $notes): void {
+            $previousStatus = $app->status;
+            $app->update([
+                'status' => CreatorApplication::STATUS_APPROVED,
+                'reviewer_id' => $reviewer->id,
+                'reviewer_notes' => $notes,
+                'reviewed_at' => now(),
+            ]);
 
-        $user = $app->user;
-        $user->update([
-            'creator_status' => 'approved',
-            'trust_score' => self::INITIAL_TRUST_SCORE,
-        ]);
-        // Asignar rol Spatie
-        if (! $user->hasRole('creator')) {
-            $user->assignRole('creator');
-        }
+            $user = $app->user;
+            $user->update([
+                'creator_status' => 'approved',
+                'trust_score' => self::INITIAL_TRUST_SCORE,
+            ]);
+            if (! $user->hasRole('creator')) {
+                $user->assignRole('creator');
+            }
+
+            $this->notifyStatusChanged($app, $previousStatus);
+        });
     }
 
     public function reject(CreatorApplication $app, User $reviewer, string $notes): void
     {
-        $app->update([
-            'status' => CreatorApplication::STATUS_REJECTED,
-            'reviewer_id' => $reviewer->id,
-            'reviewer_notes' => $notes,
-            'reviewed_at' => now(),
-        ]);
+        DB::transaction(function () use ($app, $reviewer, $notes): void {
+            $previousStatus = $app->status;
+            $app->update([
+                'status' => CreatorApplication::STATUS_REJECTED,
+                'reviewer_id' => $reviewer->id,
+                'reviewer_notes' => $notes,
+                'reviewed_at' => now(),
+            ]);
 
-        $app->user->update(['creator_status' => 'rejected']);
+            $app->user->update(['creator_status' => 'rejected']);
+            $this->notifyStatusChanged($app, $previousStatus);
+        });
     }
 
     public function requestChanges(CreatorApplication $app, User $reviewer, string $notes): void
     {
-        $app->update([
-            'status' => CreatorApplication::STATUS_CHANGES_REQUESTED,
-            'reviewer_id' => $reviewer->id,
-            'reviewer_notes' => $notes,
-            'reviewed_at' => now(),
-        ]);
+        DB::transaction(function () use ($app, $reviewer, $notes): void {
+            $previousStatus = $app->status;
+            $app->update([
+                'status' => CreatorApplication::STATUS_CHANGES_REQUESTED,
+                'reviewer_id' => $reviewer->id,
+                'reviewer_notes' => $notes,
+                'reviewed_at' => now(),
+            ]);
 
-        $app->user->update(['creator_status' => 'changes_requested']);
+            $app->user->update(['creator_status' => 'changes_requested']);
+            $this->notifyStatusChanged($app, $previousStatus);
+        });
+    }
+
+    private function notifyStatusChanged(CreatorApplication $app, string $previousStatus): void
+    {
+        if ($previousStatus === $app->status) {
+            return;
+        }
+
+        $statusLabels = [
+            CreatorApplication::STATUS_APPROVED => 'aprobada',
+            CreatorApplication::STATUS_REJECTED => 'rechazada',
+            CreatorApplication::STATUS_CHANGES_REQUESTED => 'requiere cambios',
+        ];
+        $statusLabel = $statusLabels[$app->status];
+        $body = "Tu solicitud {$app->folio} fue {$statusLabel}.";
+        if ($app->reviewer_notes) {
+            $body .= ' Respuesta: ' . Str::limit(trim($app->reviewer_notes), 400);
+        }
+
+        Notification::create([
+            'user_id' => $app->user_id,
+            'category' => 'system',
+            'type' => 'creator_application_status_changed',
+            'emoji' => $app->status === CreatorApplication::STATUS_APPROVED ? '🎉' : '📩',
+            'title' => 'Actualización de tu solicitud de Creador',
+            'body' => $body,
+            'link' => '/mi-solicitud',
+            'data' => [
+                'application_id' => $app->id,
+                'folio' => $app->folio,
+                'status' => $app->status,
+            ],
+        ]);
     }
 }

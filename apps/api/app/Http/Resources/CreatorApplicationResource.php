@@ -11,6 +11,7 @@ class CreatorApplicationResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'folio' => $this->folio,
             'status' => $this->status,
             'display_name' => $this->display_name,
             'pen_name' => $this->pen_name,

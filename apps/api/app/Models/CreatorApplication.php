@@ -63,4 +63,9 @@ class CreatorApplication extends Model
     {
         return in_array($this->status, self::ACTIVE_STATUSES, true);
     }
+
+    public function getFolioAttribute(): string
+    {
+        return 'CRE-' . str_pad((string) $this->getKey(), 6, '0', STR_PAD_LEFT);
+    }
 }
