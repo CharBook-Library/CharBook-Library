@@ -22,3 +22,7 @@ use App\Http\Controllers\SoporteController;
 
 Route::get('/soporte', [SoporteController::class, 'create'])->name('soporte.create');
 Route::post('/soporte', [SoporteController::class, 'store'])->name('soporte.store');
+
+
+Route::get('/mis-solicitudes', [SoporteController::class, 'index'])->name('soporte.index');
+Route::post('/mis-solicitudes/{ticket}/responder', [SoporteController::class, 'responder'])->name('soporte.responder');

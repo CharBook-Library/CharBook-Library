@@ -26,8 +26,6 @@ class SoporteController extends Controller
         // Generar folio único
         $data['folio'] = 'TCK-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -4));
         $data['estado'] = 'pendiente';
-        
-        // Si hay un usuario logueado, se lo asignamos
         $data['user_id'] = auth()->check() ? auth()->id() : null;
 
         // Guardar la captura de pantalla si se subió
@@ -42,5 +40,31 @@ class SoporteController extends Controller
         return redirect()->route('soporte.create')
             ->with('success', 'Tu solicitud fue enviada con éxito.')
             ->with('folio_generado', $ticket->folio);
+    }
+
+    // Ver mis solicitudes (Lector)
+    public function index()
+    {
+        $tickets = TicketSoporte::with('respuestas')->latest()->get();
+        return view('soporte.index', compact('tickets'));
+    }
+
+    // Responder y cambiar estado (Administrador)
+    public function responder(Request $request, TicketSoporte $ticket)
+    {
+        $request->validate([
+            'mensaje' => 'required|string',
+            'estado' => 'required|in:pendiente,en_proceso,resuelto'
+        ]);
+
+        \App\Models\RespuestaSoporte::create([
+            'ticket_id' => $ticket->id,
+            'user_id' => auth()->check() ? auth()->id() : null,
+            'mensaje' => $request->mensaje,
+        ]);
+
+        $ticket->update(['estado' => $request->estado]);
+
+        return redirect()->route('soporte.index')->with('success', 'Respuesta guardada y estado actualizado.');
     }
 }
