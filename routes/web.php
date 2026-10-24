@@ -16,3 +16,9 @@ Route::get('/licencias', [LicenciaController::class, 'index'])->name('licencias.
 Route::get('/licencias/crear', [LicenciaController::class, 'create'])->name('licencias.create');
 Route::post('/licencias', [LicenciaController::class, 'store'])->name('licencias.store');
 Route::get('/obras/{obra}/validar-acceso', [LicenciaController::class, 'validarAcceso'])->name('licencias.validar');
+
+
+use App\Http\Controllers\SoporteController;
+
+Route::get('/soporte', [SoporteController::class, 'create'])->name('soporte.create');
+Route::post('/soporte', [SoporteController::class, 'store'])->name('soporte.store');
