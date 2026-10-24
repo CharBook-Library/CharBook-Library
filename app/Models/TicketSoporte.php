@@ -21,6 +21,11 @@ class TicketSoporte extends Model
         'estado',
     ];
 
+        public function respuestas()
+    {
+        return $this->hasMany(RespuestaSoporte::class, 'ticket_id');
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);
