@@ -1,0 +1,301 @@
+name: CI/CD · CharBook API → preproducción
+
+# Actividad 12 · Gestión del Proceso de Desarrollo de Software
+# Alumno: Sánchez Pérez Emiliano · IDGS · UTVT
+#
+# Qué hace según el evento:
+#   pull request a main  → solo pruebas
+#   push a main o a la rama de trabajo → pruebas + artefacto de desarrollo (v0.0.0-dev.<sha>) + preproducción
+#   tag vX.Y.Z           → todo lo anterior + (si hay servidor) entrega por SSH + GitHub Release
+#   ejecución manual     → igual que un push a main
+
+on:
+  push:
+    branches: [main, actividad-12-liberacion]
+    tags: ["v*.*.*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  API_DIR: apps/api # si Laravel está en la raíz del repo, cambia esto por "."
+  PHP_VERSION: "8.3"
+  PHP_EXTENSIONS: mbstring, intl, bcmath, pdo_pgsql, pgsql, pdo_sqlite, sqlite3, zip
+
+jobs:
+  # ─────────────────────────────────────────────────────────────
+  # 1. Integración continua: dependencias + pruebas
+  # ─────────────────────────────────────────────────────────────
+  tests:
+    name: 1 · Pruebas automatizadas
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.API_DIR }}
+    steps:
+      - name: Obtener el código
+        uses: actions/checkout@v4
+
+      - name: Instalar PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: ${{ env.PHP_EXTENSIONS }}
+          coverage: none
+          tools: composer:v2
+
+      - name: Cache de Composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: composer-
+
+      - name: Instalar dependencias (incluye las de desarrollo)
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Preparar .env de pruebas
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      # phpunit.xml ya define SQLite en memoria para las pruebas, así que no hace
+      # falta levantar una base de datos. Si tus pruebas necesitan más variables
+      # (por ejemplo SCOUT_DRIVER), agrégalas con "env:" aquí.
+      - name: Ejecutar pruebas
+        run: php artisan test
+
+  # ─────────────────────────────────────────────────────────────
+  # 2. Entrega continua: construir y publicar el artefacto
+  # ─────────────────────────────────────────────────────────────
+  build-release:
+    name: 2 · Generar artefacto de liberación
+    needs: tests
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      artifact: ${{ steps.ver.outputs.name }}
+    steps:
+      - name: Obtener el código
+        uses: actions/checkout@v4
+
+      - name: Definir la versión
+        id: ver
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="$GITHUB_REF_NAME"
+          else
+            VERSION="v0.0.0-dev.${GITHUB_SHA::7}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "name=charbook-api-$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Versión a liberar: $VERSION"
+
+      - name: Instalar PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: ${{ env.PHP_EXTENSIONS }}
+          coverage: none
+          tools: composer:v2
+
+      - name: Instalar solo dependencias de producción
+        working-directory: ${{ env.API_DIR }}
+        run: composer install --no-dev --optimize-autoloader --prefer-dist --no-interaction --no-progress
+
+      # Si tu API también compila assets con Vite, agrega aquí:
+      #   - run: npm ci && npm run build
+      #     working-directory: ${{ env.API_DIR }}
+
+      - name: Armar el paquete y verificar que cumple los criterios
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: bash scripts/release/build-release.sh "$VERSION"
+
+      - name: Publicar artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.ver.outputs.name }}
+          path: |
+            dist/${{ steps.ver.outputs.name }}.tar.gz
+            dist/${{ steps.ver.outputs.name }}.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+  # ─────────────────────────────────────────────────────────────
+  # 3. Ambiente de pruebas: instalar el artefacto en limpio
+  # ─────────────────────────────────────────────────────────────
+  validate-preprod:
+    name: 3 · Validar e instalar en preproducción
+    needs: build-release
+    runs-on: ubuntu-latest
+    environment: preproduccion
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: charbook_preprod
+          POSTGRES_USER: charbook_preprod
+          POSTGRES_PASSWORD: preprod_secret
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U charbook_preprod"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      VERSION: ${{ needs.build-release.outputs.version }}
+      ARTIFACT: ${{ needs.build-release.outputs.artifact }}
+    steps:
+      - name: Obtener los scripts del repositorio
+        uses: actions/checkout@v4
+
+      - name: Descargar el artefacto de la ejecución
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build-release.outputs.artifact }}
+          path: dist
+
+      - name: Instalar PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: ${{ env.PHP_EXTENSIONS }}
+          coverage: none
+
+      - name: Verificar el contenido del artefacto
+        run: |
+          set -o pipefail
+          bash scripts/release/verify-artifact.sh "dist/$ARTIFACT.tar.gz" | tee dist/reporte-verificacion.txt
+
+      - name: Crear el .env propio de preproducción
+        run: |
+          BASE="$RUNNER_TEMP/preprod"
+          mkdir -p "$BASE/shared"
+          cat > "$BASE/shared/.env" <<EOF
+          APP_NAME=CharBook
+          APP_ENV=staging
+          APP_DEBUG=false
+          APP_KEY=base64:$(openssl rand -base64 32)
+          APP_URL=http://127.0.0.1:8080
+          LOG_CHANNEL=single
+          DB_CONNECTION=pgsql
+          DB_HOST=127.0.0.1
+          DB_PORT=5432
+          DB_DATABASE=charbook_preprod
+          DB_USERNAME=charbook_preprod
+          DB_PASSWORD=preprod_secret
+          CACHE_STORE=file
+          SESSION_DRIVER=file
+          QUEUE_CONNECTION=sync
+          SCOUT_DRIVER=null
+          FILESYSTEM_DISK=local
+          MAIL_MAILER=log
+          EOF
+
+      - name: Instalar el artefacto (migraciones, cachés, permisos)
+        run: |
+          set -o pipefail
+          bash scripts/release/deploy-preprod.sh "dist/$ARTIFACT.tar.gz" "$RUNNER_TEMP/preprod" | tee dist/reporte-instalacion.txt
+
+      - name: Prueba de humo (GET /up)
+        run: |
+          set -o pipefail
+          cd "$RUNNER_TEMP/preprod/current"
+          php artisan serve --host=127.0.0.1 --port=8080 > "$RUNNER_TEMP/serve.log" 2>&1 &
+          curl --fail --silent --show-error --include \
+            --retry 8 --retry-delay 2 --retry-connrefused \
+            http://127.0.0.1:8080/up | tee "$GITHUB_WORKSPACE/dist/reporte-humo.txt"
+
+      - name: Resumen en la página de la ejecución
+        if: always()
+        run: |
+          {
+            echo "### Liberación $VERSION"
+            echo
+            echo '```'
+            cat dist/reporte-verificacion.txt dist/reporte-instalacion.txt dist/reporte-humo.txt 2>/dev/null || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Guardar la evidencia de validación
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidencia-validacion-${{ needs.build-release.outputs.version }}
+          path: dist/reporte-*.txt
+          retention-days: 30
+
+  # ─────────────────────────────────────────────────────────────
+  # 4. Entrega a un servidor real de preproducción (opcional)
+  #    Solo corre con tag vX.Y.Z y si existe la variable PREPROD_HOST
+  # ─────────────────────────────────────────────────────────────
+  deploy-preprod:
+    name: 4 · Entregar al servidor de preproducción (SSH)
+    needs: [build-release, validate-preprod]
+    if: startsWith(github.ref, 'refs/tags/v') && vars.PREPROD_HOST != ''
+    runs-on: ubuntu-latest
+    environment: preproduccion
+    env:
+      ARTIFACT: ${{ needs.build-release.outputs.artifact }}
+      PREPROD_HOST: ${{ vars.PREPROD_HOST }}
+      PREPROD_USER: ${{ vars.PREPROD_USER }}
+      PREPROD_PATH: ${{ vars.PREPROD_PATH }}
+    steps:
+      - name: Obtener los scripts del repositorio
+        uses: actions/checkout@v4
+
+      - name: Descargar el artefacto
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build-release.outputs.artifact }}
+          path: dist
+
+      - name: Configurar SSH
+        env:
+          SSH_KEY: ${{ secrets.PREPROD_SSH_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$PREPROD_HOST" >> ~/.ssh/known_hosts
+
+      - name: Copiar el paquete y ejecutar el despliegue
+        run: |
+          scp "dist/$ARTIFACT.tar.gz" scripts/release/deploy-preprod.sh "$PREPROD_USER@$PREPROD_HOST:/tmp/"
+          ssh "$PREPROD_USER@$PREPROD_HOST" \
+            "bash /tmp/deploy-preprod.sh /tmp/$ARTIFACT.tar.gz ${PREPROD_PATH:-/var/www/charbook-preprod}"
+
+  # ─────────────────────────────────────────────────────────────
+  # 5. Publicar la versión en GitHub Releases (solo con tag)
+  # ─────────────────────────────────────────────────────────────
+  github-release:
+    name: 5 · Publicar versión en GitHub Releases
+    needs: [build-release, validate-preprod]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Descargar el artefacto
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build-release.outputs.artifact }}
+          path: dist
+
+      - name: Crear el release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.build-release.outputs.version }}
+        run: |
+          FLAG=""
+          # v1.0.0-rc.1 se marca como pre-release
+          if [[ "$VERSION" == *-* ]]; then FLAG="--prerelease"; fi
+          gh release create "$VERSION" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "CharBook API $VERSION" \
+            --generate-notes $FLAG
