@@ -1,0 +1,268 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: "Inter Variable", "Segoe UI", sans-serif;
+  --font-mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  --font-serif: "Playfair Display Variable", Georgia, serif;
+  --font-heading: "Playfair Display Variable", Georgia, serif;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-gold: var(--gold);
+  --color-gold-foreground: var(--gold-foreground);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* ============ TEMA CLARO (light) ============ */
+:root {
+  --background: oklch(0.99 0.005 80);
+  --foreground: oklch(0.18 0.02 250);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.02 250);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.02 250);
+  --primary: oklch(0.78 0.13 80);            /* gold */
+  --primary-foreground: oklch(0.18 0.02 250);
+  --secondary: oklch(0.96 0.005 80);
+  --secondary-foreground: oklch(0.18 0.02 250);
+  --muted: oklch(0.95 0.005 80);
+  --muted-foreground: oklch(0.5 0.02 250);
+  --accent: oklch(0.94 0.02 80);
+  --accent-foreground: oklch(0.18 0.02 250);
+  --destructive: oklch(0.6 0.22 27);
+  --border: oklch(0.9 0.01 80);
+  --input: oklch(0.92 0.01 80);
+  --ring: oklch(0.78 0.13 80);
+  --gold: oklch(0.78 0.13 80);
+  --gold-foreground: oklch(0.18 0.02 250);
+  --chart-1: oklch(0.78 0.13 80);
+  --chart-2: oklch(0.65 0.18 250);
+  --chart-3: oklch(0.55 0.2 30);
+  --chart-4: oklch(0.7 0.15 160);
+  --chart-5: oklch(0.6 0.2 320);
+  --radius: 0.75rem;
+  --sidebar: oklch(0.99 0.005 80);
+  --sidebar-foreground: oklch(0.18 0.02 250);
+  --sidebar-primary: oklch(0.78 0.13 80);
+  --sidebar-primary-foreground: oklch(0.18 0.02 250);
+  --sidebar-accent: oklch(0.95 0.01 80);
+  --sidebar-accent-foreground: oklch(0.18 0.02 250);
+  --sidebar-border: oklch(0.9 0.01 80);
+  --sidebar-ring: oklch(0.78 0.13 80);
+}
+
+/* ============ TEMA OSCURO (dark) — DEFAULT ============ */
+.dark {
+  --background: oklch(0.13 0.02 250);          /* navy profundo casi negro */
+  --foreground: oklch(0.97 0.005 80);          /* casi blanco con tinte cálido */
+  --card: oklch(0.17 0.02 250);
+  --card-foreground: oklch(0.97 0.005 80);
+  --popover: oklch(0.17 0.02 250);
+  --popover-foreground: oklch(0.97 0.005 80);
+  --primary: oklch(0.78 0.13 80);              /* gold premium */
+  --primary-foreground: oklch(0.13 0.02 250);
+  --secondary: oklch(0.22 0.02 250);
+  --secondary-foreground: oklch(0.97 0.005 80);
+  --muted: oklch(0.2 0.02 250);
+  --muted-foreground: oklch(0.65 0.02 250);
+  --accent: oklch(0.25 0.04 80);
+  --accent-foreground: oklch(0.97 0.005 80);
+  --destructive: oklch(0.65 0.22 22);
+  --border: oklch(0.78 0.13 80 / 18%);          /* borde con tinte dorado sutil */
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.78 0.13 80 / 60%);
+  --gold: oklch(0.78 0.13 80);
+  --gold-foreground: oklch(0.13 0.02 250);
+  --chart-1: oklch(0.78 0.13 80);
+  --chart-2: oklch(0.65 0.18 250);
+  --chart-3: oklch(0.55 0.2 30);
+  --chart-4: oklch(0.7 0.15 160);
+  --chart-5: oklch(0.6 0.2 320);
+  --sidebar: oklch(0.11 0.02 250);
+  --sidebar-foreground: oklch(0.97 0.005 80);
+  --sidebar-primary: oklch(0.78 0.13 80);
+  --sidebar-primary-foreground: oklch(0.13 0.02 250);
+  --sidebar-accent: oklch(0.2 0.02 250);
+  --sidebar-accent-foreground: oklch(0.97 0.005 80);
+  --sidebar-border: oklch(0.78 0.13 80 / 15%);
+  --sidebar-ring: oklch(0.78 0.13 80 / 60%);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  /* Scrollbar dorado sutil */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: oklch(0.78 0.13 80 / 30%);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.78 0.13 80 / 60%);
+  }
+  /* Hide scrollbar on horizontal carousels */
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { scrollbar-width: none; }
+}
+
+/* Animaciones suaves para entradas */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-up {
+  animation: fade-in-up 0.4s ease-out;
+}
+
+/* ===== Identidad Premium / Premium Plus (dorado editorial, brillo sutil) ===== */
+
+/* Gradiente dorado animado lentamente — para bordes y chips Plus */
+@keyframes premium-sheen {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* Brillo que recorre el chip/CTA Plus de forma discreta */
+@keyframes premium-shimmer {
+  0% { transform: translateX(-150%) skewX(-18deg); }
+  60%, 100% { transform: translateX(250%) skewX(-18deg); }
+}
+
+/* Glow respirando muy suave para la card recomendada */
+@keyframes premium-breathe {
+  0%, 100% { box-shadow: 0 0 24px oklch(0.78 0.13 80 / 14%), 0 0 0 1px oklch(0.78 0.13 80 / 35%); }
+  50% { box-shadow: 0 0 44px oklch(0.78 0.13 80 / 26%), 0 0 0 1px oklch(0.82 0.14 80 / 55%); }
+}
+
+/* Chip de miembro Premium (estable, sobrio) */
+.member-chip-premium {
+  border: 1px solid oklch(0.78 0.13 80 / 45%);
+  background: linear-gradient(135deg, oklch(0.78 0.13 80 / 14%), oklch(0.78 0.13 80 / 6%));
+  color: oklch(0.84 0.12 82);
+}
+
+/* Chip de miembro Premium Plus (gradiente vivo + shimmer sutil) */
+.member-chip-plus {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid transparent;
+  color: oklch(0.93 0.08 84);
+  background:
+    linear-gradient(oklch(0.23 0.03 70 / 92%), oklch(0.2 0.03 60 / 92%)) padding-box,
+    linear-gradient(120deg, oklch(0.82 0.15 82), oklch(0.62 0.12 60), oklch(0.86 0.14 88), oklch(0.82 0.15 82)) border-box;
+  background-size: 100% 100%, 280% 280%;
+  animation: premium-sheen 7s ease-in-out infinite;
+}
+.member-chip-plus::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: linear-gradient(105deg, transparent, oklch(0.95 0.1 85 / 22%), transparent);
+  animation: premium-shimmer 5.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Card destacada Premium Plus en /premium */
+.plus-card-glow {
+  animation: premium-breathe 5s ease-in-out infinite;
+}
+.plus-border-gradient {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--card), var(--card)) padding-box,
+    linear-gradient(150deg, oklch(0.82 0.15 82 / 90%), oklch(0.5 0.08 70 / 40%), oklch(0.86 0.14 88 / 90%)) border-box;
+  background-size: 100% 100%, 240% 240%;
+  animation: premium-sheen 9s ease-in-out infinite;
+}
+
+/* CTA dorado Plus con barrido al hover */
+.plus-cta {
+  position: relative;
+  overflow: hidden;
+}
+.plus-cta::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 45%;
+  background: linear-gradient(105deg, transparent, oklch(1 0 0 / 25%), transparent);
+  transform: translateX(-160%) skewX(-18deg);
+  transition: transform 0.7s ease;
+  pointer-events: none;
+}
+.plus-cta:hover::after {
+  transform: translateX(240%) skewX(-18deg);
+}
+
+/* Icono con flotación mínima (para sparkles del plan Plus) */
+@keyframes premium-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+.animate-premium-float {
+  animation: premium-float 3.2s ease-in-out infinite;
+}
+
+/* Accesibilidad: sin movimiento si el usuario lo prefiere */
+@media (prefers-reduced-motion: reduce) {
+  .member-chip-plus,
+  .plus-border-gradient,
+  .plus-card-glow,
+  .animate-premium-float,
+  .animate-fade-in-up {
+    animation: none;
+  }
+  .member-chip-plus::after,
+  .plus-cta::after {
+    display: none;
+  }
+}

@@ -1,0 +1,189 @@
+{
+  "common": {
+    "back": "Back",
+    "cancel": "Cancel",
+    "save": "Save",
+    "submit": "Submit",
+    "edit": "Edit",
+    "delete": "Delete",
+    "loading": "Loading…",
+    "saving": "Saving…",
+    "error": "Something went wrong",
+    "success": "Done",
+    "yes": "Yes",
+    "no": "No",
+    "next": "Next",
+    "previous": "Previous",
+    "close": "Close"
+  },
+  "nav": {
+    "home": "Home",
+    "catalog": "Catalog",
+    "creators": "Creators",
+    "community": "Community",
+    "free": "Free books"
+  },
+  "header": {
+    "search_placeholder": "Search books...",
+    "search_aria": "Search",
+    "user_menu_aria": "User menu",
+    "my_atelier": "My Atelier",
+    "my_library": "My library",
+    "my_anthologies": "My anthologies",
+    "edit_profile": "Edit profile",
+    "requests": "Requests",
+    "my_studio": "My Studio",
+    "my_application": "My Creator application",
+    "become_creator": "Become a Creator",
+    "admin_panel": "Admin panel",
+    "mod_panel": "Moderation panel",
+    "sign_in": "Sign in",
+    "sign_out": "Sign out",
+    "account_aria": "Account"
+  },
+  "language": {
+    "selector_label": "Language",
+    "switch_to": "Switch to {language}",
+    "current": "Current language",
+    "saved": "Language updated to {language}"
+  },
+  "creator": {
+    "landing": {
+      "title": "Publish your work on CharBook Atelier",
+      "subtitle": "A space for creators who treat writing as craft, not as content.",
+      "cta_apply": "Start my application",
+      "cta_status": "View my application",
+      "benefits": {
+        "audience": {
+          "title": "Curated audience",
+          "desc": "Readers who seek quality work, not infinite scroll."
+        },
+        "no_algorithm": {
+          "title": "No manipulative algorithm",
+          "desc": "Your work shines on its merit, not on engagement metrics."
+        },
+        "monetization": {
+          "title": "Future monetization",
+          "desc": "Subscriptions, tips, direct sales. You keep 90%."
+        },
+        "community": {
+          "title": "Quality community",
+          "desc": "Connect with readers and other serious creators."
+        }
+      },
+      "checklist_title": "Before applying, complete these requirements:",
+      "ready_message": "You meet all requirements! You can start your application.",
+      "not_ready_message": "Complete the pending items to be able to apply."
+    },
+    "wizard": {
+      "step_of": "Step {current} of {total}",
+      "step1_title": "Tell us who you are",
+      "step2_title": "Show us your work",
+      "step3_title": "What you'll publish",
+      "step4_title": "Why you want to join",
+      "display_name": "Public name",
+      "display_name_help": "How you'll appear on CharBook",
+      "pen_name": "Pen name (optional)",
+      "pen_name_help": "If you sign with an artistic alias",
+      "bio_long": "Your bio",
+      "bio_long_help": "500-2000 characters. Tell us who you are as an author.",
+      "sample_url": "Link to a sample of your work",
+      "sample_url_help": "Medium, Wattpad, your website, a public Google Doc, or a PDF.",
+      "genres": "Genres you'll write in",
+      "genres_help": "Pick up to 5",
+      "languages": "Languages you'll publish in",
+      "publish_frequency": "Expected frequency",
+      "publish_frequency_weekly": "Weekly",
+      "publish_frequency_biweekly": "Biweekly",
+      "publish_frequency_monthly": "Monthly",
+      "publish_frequency_irregular": "Irregular",
+      "publish_plan": "Your plan (optional)",
+      "publish_plan_help": "Briefly tell us what you plan to publish",
+      "why_join": "Why do you want to join CharBook?",
+      "why_join_help": "250-1000 characters. Be specific, not generic.",
+      "social_links": "Social links (optional)",
+      "submit": "Submit application",
+      "submitting": "Submitting…",
+      "submitted_success": "Application submitted! We'll let you know once we review it."
+    },
+    "my_application": {
+      "title": "My application",
+      "status_pending": "Under review",
+      "status_pending_desc": "Your application is in the queue. We'll notify you once we review it.",
+      "status_changes_requested": "Changes requested",
+      "status_changes_requested_desc": "The reviewer has requested changes. Review the notes and resubmit.",
+      "status_approved": "Approved!",
+      "status_approved_desc": "You are now a Creator on CharBook Atelier. Head to the Studio to begin.",
+      "status_rejected": "Not approved",
+      "status_rejected_desc": "Your application was rejected. You can reapply in {days} days.",
+      "reviewer_notes": "Reviewer notes",
+      "submitted_on": "Submitted on {date}",
+      "edit_resubmit": "Edit and resubmit",
+      "go_to_studio": "Go to Studio"
+    }
+  },
+  "admin": {
+    "creator_apps": {
+      "title": "Creator Applications",
+      "subtitle": "Review and decide which readers become creators.",
+      "filter_pending": "Pending",
+      "filter_all": "All",
+      "no_apps": "No applications in this state.",
+      "rubric_title": "Evaluation rubric",
+      "rubric_quality": "Sample quality",
+      "rubric_commitment": "Commitment",
+      "rubric_professionalism": "Professionalism",
+      "rubric_fit": "Editorial fit",
+      "score_total": "Total score: {score}/12",
+      "min_to_approve": "Minimum {min}/12 to approve",
+      "action_approve": "Approve",
+      "action_reject": "Reject",
+      "action_request_changes": "Request changes",
+      "notes_placeholder_changes": "State what needs to improve (min 20 characters)",
+      "notes_placeholder_reject": "State the reason for rejection (min 20 characters)",
+      "applicant_context": "Applicant context",
+      "applicant_account_age": "Account created {days} days ago",
+      "applicant_reviews": "{count} reviews written",
+      "applicant_anthologies": "{count} anthologies",
+      "applicant_followers": "{count} followers"
+    },
+    "reports": {
+      "title": "Reports",
+      "subtitle": "Moderate content reported by the community.",
+      "filter_open": "Open",
+      "filter_in_review": "In review",
+      "filter_resolved": "Resolved",
+      "no_reports": "No reports in this state.",
+      "reason_spam": "Spam",
+      "reason_abuse": "Abuse",
+      "reason_copyright": "Copyright",
+      "reason_illegal": "Illegal",
+      "reason_inappropriate": "Inappropriate",
+      "reason_misleading": "Misleading",
+      "reason_other": "Other",
+      "target_book": "Book",
+      "target_user": "User",
+      "target_review": "Review",
+      "target_comment": "Comment",
+      "action_dismiss": "Dismiss",
+      "action_resolve": "Resolve",
+      "resolution_action_label": "Action to take",
+      "resolution_action_warn": "Warn",
+      "resolution_action_hide": "Hide content",
+      "resolution_action_delete": "Delete content",
+      "resolution_action_suspend_temp": "Suspend (temporary)",
+      "resolution_action_suspend_perm": "Suspend (permanent)",
+      "resolution_action_ban": "Ban"
+    }
+  },
+  "report": {
+    "button": "Report",
+    "dialog_title": "Report content",
+    "select_reason": "Select a reason",
+    "details_label": "Details (optional)",
+    "details_placeholder": "Add additional context…",
+    "submit": "Submit report",
+    "success": "Report submitted. Thanks for helping keep the community healthy.",
+    "duplicate": "You already reported this recently."
+  }
+}
