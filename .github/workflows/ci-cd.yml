@@ -170,7 +170,7 @@ jobs:
       - name: Verificar el contenido del artefacto
         run: |
           set -o pipefail
-          bash scripts/release/verify-artifact.sh "dist/$ARTIFACT.tar.gz" | tee dist/reporte-verificacion.txt
+          bash scripts/release/verify-artifact.sh "dist/$ARTIFACT.tar.gz" 2>&1 | tee dist/reporte-verificacion.txt
 
       - name: Crear el .env propio de preproducción
         run: |
@@ -200,7 +200,7 @@ jobs:
       - name: Instalar el artefacto (migraciones, cachés, permisos)
         run: |
           set -o pipefail
-          bash scripts/release/deploy-preprod.sh "dist/$ARTIFACT.tar.gz" "$RUNNER_TEMP/preprod" | tee dist/reporte-instalacion.txt
+          bash scripts/release/deploy-preprod.sh "dist/$ARTIFACT.tar.gz" "$RUNNER_TEMP/preprod" 2>&1 | tee dist/reporte-instalacion.txt
 
       - name: Prueba de humo (GET /up)
         run: |

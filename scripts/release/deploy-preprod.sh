@@ -12,7 +12,11 @@
 #
 # Requisito: crear antes <base>/shared/.env con los valores de preproducción
 # (hay una plantilla en apps/api/.env.preproduccion.example).
-set -euo pipefail
+set -Eeuo pipefail
+trap 'echo "✘ El despliegue se detuvo en la línea $LINENO"' ERR
+
+# Muestra cada comando de artisan antes de correrlo, para saber cuál falló
+artisan() { echo "  \$ php artisan $*"; php artisan "$@"; }
 
 ARTIFACT="$(realpath "${1:?Uso: deploy-preprod.sh <paquete.tar.gz> [carpeta_base]}")"
 BASE="${2:-/var/www/charbook-preprod}"
@@ -57,10 +61,15 @@ fi
 cd "$RELEASE"
 
 echo "→ Preparando la aplicación"
-php artisan package:discover --ansi
-php artisan migrate --force
-php artisan optimize
-php artisan storage:link --force 2>/dev/null || true
+artisan package:discover --ansi
+artisan migrate --force
+artisan config:cache
+artisan event:cache
+artisan view:cache
+# Si alguna ruta usa closures, Laravel no puede guardarlas en caché. Es solo una
+# optimización, así que se avisa y se sigue en lugar de tumbar el despliegue.
+artisan route:cache || echo "  ⚠ route:cache no se pudo (hay rutas con closures); se sigue sin caché de rutas"
+artisan storage:link --force || true
 
 echo "→ Activando la versión"
 ln -sfn "$RELEASE" "$BASE/current"
